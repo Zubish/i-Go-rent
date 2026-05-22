@@ -1,8 +1,23 @@
 import { neon } from "@neondatabase/serverless"
 
-const sql = neon(process.env.DATABASE_URL || "")
+let client: ReturnType<typeof neon> | null = null
 
-export { sql }
+function getSqlClient() {
+  if (!client) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL is not configured")
+    }
+
+    client = neon(process.env.DATABASE_URL)
+  }
+
+  return client
+}
+
+export async function sql(query: string, params: any[] = []) {
+  return getSqlClient()(query, params)
+}
+
 
 export async function executeQuery(query: string, params: any[] = []) {
   try {
