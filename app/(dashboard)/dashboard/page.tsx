@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { AlertTriangle, BadgeCheck, CalendarCheck, CircleDollarSign, PackagePlus, ShieldCheck, Truck } from "lucide-react"
 
+import { signOut } from "@/app/actions/auth-actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -65,17 +66,34 @@ export default function DashboardPage() {
   const [listingError, setListingError] = useState("")
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const queryRole = params.get("role")
-    const user = getDemoSession()
-    const activeRole =
-      queryRole === "vendor" || queryRole === "logistics"
-        ? queryRole
-        : user?.role === "vendor" || user?.role === "logistics"
-          ? user.role
-          : "renter"
-    setSession(user)
-    setRole(activeRole)
+    async function hydrateSession() {
+      const params = new URLSearchParams(window.location.search)
+      const queryRole = params.get("role")
+      const localUser = getDemoSession()
+      let user = localUser
+
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" })
+        if (response.ok) {
+          const data = await response.json()
+          if (data.user) user = data.user
+        }
+      } catch {
+        user = localUser
+      }
+
+      const activeRole =
+        queryRole === "vendor" || queryRole === "logistics"
+          ? queryRole
+          : user?.role === "vendor" || user?.role === "logistics"
+            ? user.role
+            : "renter"
+
+      setSession(user)
+      setRole(activeRole)
+    }
+
+    hydrateSession()
     setListings(getAllListings())
     setBookings(getBookings())
   }, [])
@@ -127,7 +145,8 @@ export default function DashboardPage() {
     }
   }
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    await signOut()
     signOutDemo()
     setSession(null)
   }

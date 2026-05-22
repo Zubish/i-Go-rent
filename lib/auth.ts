@@ -7,7 +7,7 @@ export interface AuthPayload extends JWTPayload {
   id: string
   userId: string
   email: string
-  userType: "renter" | "host" | "both"
+  userType: "renter" | "host" | "vendor" | "logistics" | "both"
 }
 
 export async function createToken(payload: AuthPayload) {

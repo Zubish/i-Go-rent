@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   first_name VARCHAR(100),
   last_name VARCHAR(100),
   phone_number VARCHAR(20),
-  user_type VARCHAR(20) CHECK (user_type IN ('renter', 'host', 'both')),
+  user_type VARCHAR(20) CHECK (user_type IN ('renter', 'host', 'vendor', 'logistics', 'both')),
   profile_image_url TEXT,
   bio TEXT,
   location VARCHAR(255),
@@ -22,6 +22,14 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Keep existing projects aligned with the production role model.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_user_type_check;
+ALTER TABLE users ADD CONSTRAINT users_user_type_check CHECK (user_type IN ('renter', 'host', 'vendor', 'logistics', 'both'));
+ALTER TABLE users ADD COLUMN IF NOT EXISTS legal_use_accepted_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS residential_area VARCHAR(150);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contact_name VARCHAR(150);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contact_phone VARCHAR(30);
 
 -- Government Identity Verification Table
 CREATE TABLE IF NOT EXISTS identity_verification (
@@ -89,6 +97,39 @@ CREATE TABLE IF NOT EXISTS host_tiers (
   UNIQUE(user_id)
 );
 
+-- Vendor profile table. "host" is retained in old table names for compatibility,
+-- but new product language uses vendor.
+CREATE TABLE IF NOT EXISTS vendor_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  business_name VARCHAR(200),
+  cac_number VARCHAR(50),
+  pickup_area VARCHAR(150),
+  pickup_address TEXT,
+  verification_level VARCHAR(50) DEFAULT 'vendor_draft',
+  can_publish BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id)
+);
+
+CREATE TABLE IF NOT EXISTS logistics_provider_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider_name VARCHAR(200),
+  license_number VARCHAR(100),
+  vehicle_type VARCHAR(100),
+  plate_number VARCHAR(50),
+  coverage_areas TEXT[],
+  verification_level VARCHAR(50) DEFAULT 'logistics_draft',
+  can_receive_dispatch BOOLEAN DEFAULT FALSE,
+  completed_dispatches INTEGER DEFAULT 0,
+  rating DECIMAL(3, 2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id)
+);
+
 -- Rental Categories Table
 CREATE TABLE IF NOT EXISTS categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -118,12 +159,19 @@ CREATE TABLE IF NOT EXISTS listings (
   
   -- Item Details
   condition VARCHAR(50) CHECK (condition IN ('new', 'excellent', 'good', 'fair')),
+  known_defects TEXT,
+  accessories TEXT,
+  usage_limits TEXT,
+  replacement_value DECIMAL(12, 2) DEFAULT 0,
+  late_return_fee DECIMAL(12, 2) DEFAULT 0,
+  max_rental_days INTEGER DEFAULT 7,
   available BOOLEAN DEFAULT TRUE,
   total_quantity INTEGER DEFAULT 1,
   available_quantity INTEGER DEFAULT 1,
   
   -- Images
   image_urls TEXT[], -- Array of image URLs
+  photo_count INTEGER DEFAULT 0,
   
   -- Ratings
   rating DECIMAL(3, 2) DEFAULT 0,
@@ -153,6 +201,10 @@ CREATE TABLE IF NOT EXISTS bookings (
   total_price DECIMAL(12, 2) NOT NULL,
   total_paid DECIMAL(12, 2) DEFAULT 0,
   currency VARCHAR(3) DEFAULT 'NGN',
+  renter_phone VARCHAR(30),
+  legal_use_accepted BOOLEAN DEFAULT FALSE,
+  condition_acknowledged BOOLEAN DEFAULT FALSE,
+  condition_snapshot JSONB,
   
   -- Status
   status VARCHAR(50) CHECK (status IN ('pending', 'confirmed', 'active', 'completed', 'cancelled', 'disputed')) DEFAULT 'pending',
@@ -162,6 +214,30 @@ CREATE TABLE IF NOT EXISTS bookings (
   cancelled_at TIMESTAMP,
   cancellation_refund_percentage DECIMAL(5, 2),
   
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS dispatch_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  listing_id UUID REFERENCES listings(id) ON DELETE SET NULL,
+  vendor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  renter_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  logistics_provider_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  provider_contact_snapshot JSONB,
+  pickup_area VARCHAR(150),
+  delivery_area VARCHAR(150),
+  pickup_window VARCHAR(150),
+  delivery_window VARCHAR(150),
+  return_pickup_window VARCHAR(150),
+  dispatch_fee DECIMAL(12, 2) DEFAULT 0,
+  dispatch_status VARCHAR(50) DEFAULT 'pending_assignment',
+  handover_code VARCHAR(30),
+  proof_of_pickup TEXT,
+  proof_of_delivery TEXT,
+  proof_of_return TEXT,
+  issue_notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -308,8 +384,25 @@ CREATE INDEX idx_notifications_is_read ON notifications(is_read);
 
 -- Backfill-friendly alterations for existing projects.
 ALTER TABLE listings ADD COLUMN IF NOT EXISTS security_deposit_amount DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS known_defects TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS accessories TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS usage_limits TEXT;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS replacement_value DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS late_return_fee DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS max_rental_days INTEGER DEFAULT 7;
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS photo_count INTEGER DEFAULT 0;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS rental_fee DECIMAL(12, 2) DEFAULT 0;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS security_deposit_amount DECIMAL(12, 2) DEFAULT 0;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS delivery_type VARCHAR(30) DEFAULT 'self_pickup';
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS delivery_fee DECIMAL(12, 2) DEFAULT 0;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_paid DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS renter_phone VARCHAR(30);
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS legal_use_accepted BOOLEAN DEFAULT FALSE;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS condition_acknowledged BOOLEAN DEFAULT FALSE;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS condition_snapshot JSONB;
+
+CREATE INDEX IF NOT EXISTS idx_vendor_profiles_user_id ON vendor_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_logistics_profiles_user_id ON logistics_provider_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_dispatch_booking_id ON dispatch_assignments(booking_id);
+CREATE INDEX IF NOT EXISTS idx_dispatch_provider_id ON dispatch_assignments(logistics_provider_id);
+CREATE INDEX IF NOT EXISTS idx_dispatch_status ON dispatch_assignments(dispatch_status);

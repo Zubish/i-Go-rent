@@ -680,3 +680,21 @@ Implemented in demo mode:
 - Vendor condition contract fields: known defects, accessories, usage limits, replacement value, late-return fee, and maximum rental duration.
 - Listing detail condition record visible before checkout.
 - Booking condition snapshot captured for receipt confirmation, return inspection, and future dispute review.
+
+### Batch 3: Production Account Foundation
+
+Implemented:
+
+- Database schema upgraded for renter, vendor, logistics, and legacy host roles.
+- Database schema upgraded for vendor profiles, logistics-provider profiles, dispatch assignments, condition contract fields, and booking condition snapshots.
+- Signup now creates real email/password users in the database.
+- Signup now writes identity verification placeholders, vendor profiles, and logistics-provider profiles.
+- Signin now verifies real database credentials and sets the auth cookie.
+- Dashboard and checkout can hydrate the current user from the auth session endpoint.
+
+Remaining for later production batches:
+
+- Move listings and bookings from compatibility storage into database-first CRUD.
+- Replace simulated escrow with Blackcrow API transactions and webhooks.
+- Replace placeholder KYC with a real KYC provider.
+- Add production file upload/storage for listing images.

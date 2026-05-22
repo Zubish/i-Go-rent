@@ -46,12 +46,28 @@ export default function CreateBookingForm() {
       setListing(nextListing)
       setSuggestedProvider(nextListing ? getSuggestedLogisticsProvider(nextListing) : null)
     }
-    const session = getDemoSession()
-    setSession(session)
-    if (session) {
-      setRenterName(`${session.firstName} ${session.lastName}`)
-      setRenterPhone(session.phone)
+    async function hydrateSession() {
+      const localSession = getDemoSession()
+      let nextSession = localSession
+
+      try {
+        const response = await fetch("/api/auth/session", { cache: "no-store" })
+        if (response.ok) {
+          const data = await response.json()
+          if (data.user) nextSession = data.user
+        }
+      } catch {
+        nextSession = localSession
+      }
+
+      setSession(nextSession)
+      if (nextSession) {
+        setRenterName(`${nextSession.firstName} ${nextSession.lastName}`)
+        setRenterPhone(nextSession.phone)
+      }
     }
+
+    hydrateSession()
   }, [listingId])
 
   const totals = useMemo(() => {

@@ -7,11 +7,12 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { BadgeCheck, ShieldCheck, Truck } from "lucide-react"
 
+import { signUp } from "@/app/actions/auth-actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { createDemoSession } from "@/lib/demo-client-store"
+import { saveDemoSession } from "@/lib/demo-client-store"
 import { getRoleLabel, lagosAreas, legalUseWarning, type UserRole } from "@/lib/demo-marketplace"
 
 const roles: UserRole[] = ["renter", "vendor", "logistics"]
@@ -23,6 +24,7 @@ export default function SignUpPage() {
     firstName: "",
     lastName: "",
     email: "",
+    password: "",
     phone: "",
     area: "Lekki Phase 1",
     nin: "",
@@ -35,6 +37,8 @@ export default function SignUpPage() {
     coverageArea: "Lekki Phase 1, Victoria Island",
     legalAccepted: false,
   })
+  const [error, setError] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -48,9 +52,40 @@ export default function SignUpPage() {
     setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }))
   }
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    createDemoSession({ role, ...formData })
+    setError("")
+    setSubmitting(true)
+
+    const response = await signUp({
+      email: formData.email,
+      password: formData.password,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phoneNumber: formData.phone,
+      userType: role,
+      city: formData.area,
+      state: "Lagos",
+      area: formData.area,
+      nin: formData.nin,
+      bvn: formData.bvn,
+      cac: formData.cac,
+      businessName: formData.businessName,
+      licenseNumber: formData.licenseNumber,
+      vehicleType: formData.vehicleType,
+      plateNumber: formData.plateNumber,
+      coverageArea: formData.coverageArea,
+      legalAccepted: formData.legalAccepted,
+    })
+
+    setSubmitting(false)
+
+    if (!response.success || !response.user) {
+      setError(response.error || "Could not create account")
+      return
+    }
+
+    saveDemoSession(response.user)
     router.push(role === "renter" ? "/browse" : `/dashboard?role=${role}`)
   }
 
@@ -107,6 +142,15 @@ export default function SignUpPage() {
               <Input name="lastName" placeholder="Last name" value={formData.lastName} onChange={handleChange} required />
             </div>
             <Input name="email" type="email" placeholder="Email address" value={formData.email} onChange={handleChange} required />
+            <Input
+              name="password"
+              type="password"
+              placeholder="Password"
+              value={formData.password}
+              onChange={handleChange}
+              minLength={8}
+              required
+            />
             <Input name="phone" placeholder="Phone number" value={formData.phone} onChange={handleChange} required />
             <select
               name="area"
@@ -176,8 +220,10 @@ export default function SignUpPage() {
               <span>{legalUseWarning}</span>
             </label>
 
-            <Button className="w-full bg-teal-500 text-white hover:bg-teal-600">
-              Create {getRoleLabel(role).toLowerCase()} profile
+            {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
+
+            <Button disabled={submitting} className="w-full bg-teal-500 text-white hover:bg-teal-600">
+              {submitting ? "Creating account..." : `Create ${getRoleLabel(role).toLowerCase()} profile`}
             </Button>
           </form>
 
