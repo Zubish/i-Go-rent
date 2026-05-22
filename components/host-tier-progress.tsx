@@ -120,7 +120,7 @@ export default function HostTierProgress({ userId }: { userId: string }) {
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <h4 className="font-bold mb-2">Current Benefits:</h4>
           <ul className="space-y-1">
-            {currentBadge.benefits.map((benefit, idx) => (
+            {currentBadge.benefits.map((benefit: string, idx: number) => (
               <li key={idx} className="text-sm text-gray-700">
                 ✓ {benefit}
               </li>

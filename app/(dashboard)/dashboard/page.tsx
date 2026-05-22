@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { BadgeCheck, CalendarCheck, CircleDollarSign, PackagePlus, ShieldCheck } from "lucide-react"
+import { BadgeCheck, CalendarCheck, CircleDollarSign, PackagePlus, ShieldCheck, Truck } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   categories,
   formatNaira,
+  getRoleLabel,
+  legalUseWarning,
   seedListings,
   type DemoBooking,
   type DemoListing,
@@ -24,9 +26,12 @@ import {
   createVendorListing,
   getAllListings,
   getBookings,
+  getBookingsForLogisticsProvider,
   getDemoSession,
   signOutDemo,
 } from "@/lib/demo-client-store"
+
+const dashboardRoles: UserRole[] = ["renter", "vendor", "logistics"]
 
 const defaultListingForm = {
   title: "Professional Sound System",
@@ -38,7 +43,8 @@ const defaultListingForm = {
   location: "Admiralty Way, Lekki Phase 1",
   deliveryArea: "Lekki, VI, Ikoyi, Ajah",
   condition: "Excellent" as DemoListing["condition"],
-  imageUrl: "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1200&q=80",
+  imageUrls:
+    "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1200&q=80, https://images.unsplash.com/photo-1505236858219-8359eb29e329?auto=format&fit=crop&w=1200&q=80",
 }
 
 export default function DashboardPage() {
@@ -53,7 +59,12 @@ export default function DashboardPage() {
     const params = new URLSearchParams(window.location.search)
     const queryRole = params.get("role")
     const user = getDemoSession()
-    const activeRole = queryRole === "vendor" || user?.role === "vendor" ? "vendor" : "renter"
+    const activeRole =
+      queryRole === "vendor" || queryRole === "logistics"
+        ? queryRole
+        : user?.role === "vendor" || user?.role === "logistics"
+          ? user.role
+          : "renter"
     setSession(user)
     setRole(activeRole)
     setListings(getAllListings())
@@ -66,6 +77,9 @@ export default function DashboardPage() {
   }, [listings, session])
 
   const activeBookings = bookings.filter((booking) => booking.escrowStatus === "held")
+  const dispatchBookings = bookings.filter((booking) => booking.dispatch)
+  const logisticsBookings = session ? getBookingsForLogisticsProvider(session.id) : []
+  const visibleDispatchBookings = logisticsBookings.length ? logisticsBookings : dispatchBookings
   const totalEscrow = bookings.reduce((sum, booking) => sum + booking.totalPaid, 0)
 
   const handleListingChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -84,7 +98,7 @@ export default function DashboardPage() {
       location: form.location,
       deliveryArea: form.deliveryArea,
       condition: form.condition,
-      imageUrl: form.imageUrl,
+      imageUrls: form.imageUrls,
     })
     setCreatedListingId(listing.id)
     setListings(getAllListings())
@@ -116,28 +130,25 @@ export default function DashboardPage() {
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <Badge className="bg-teal-50 text-teal-700">{role === "vendor" ? "Vendor workspace" : "Renter workspace"}</Badge>
+            <Badge className="bg-teal-50 text-teal-700">{getRoleLabel(role)} workspace</Badge>
             <h1 className="mt-3 text-4xl font-semibold tracking-normal text-slate-950">
               {session ? `Welcome, ${session.firstName}` : "Demo dashboard"}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Manage listings, simulated bookings, and escrow states for the Lagos rental flow.
+              Manage listings, simulated bookings, dispatch assignments, and escrow states for the Lagos rental flow.
             </p>
           </div>
-          <div className="grid grid-cols-2 rounded-lg bg-white p-1 shadow-sm">
-            {[
-              ["renter", "Renter"],
-              ["vendor", "Vendor"],
-            ].map(([value, label]) => (
+          <div className="grid grid-cols-3 rounded-lg bg-white p-1 shadow-sm">
+            {dashboardRoles.map((value) => (
               <button
                 key={value}
                 type="button"
-                onClick={() => setRole(value as UserRole)}
+                onClick={() => setRole(value)}
                 className={`rounded-md px-5 py-2 text-sm font-medium ${
                   role === value ? "bg-[#071b2f] text-white" : "text-slate-600"
                 }`}
               >
-                {label}
+                {value === "logistics" ? "Logistics" : getRoleLabel(value)}
               </button>
             ))}
           </div>
@@ -146,7 +157,11 @@ export default function DashboardPage() {
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           <Metric icon={CalendarCheck} label="Bookings" value={bookings.length.toString()} />
           <Metric icon={ShieldCheck} label="Active escrow" value={activeBookings.length.toString()} />
-          <Metric icon={CircleDollarSign} label="Total simulated value" value={formatNaira(totalEscrow)} />
+          <Metric
+            icon={role === "logistics" ? Truck : CircleDollarSign}
+            label={role === "logistics" ? "Dispatch jobs" : "Total simulated value"}
+            value={role === "logistics" ? dispatchBookings.length.toString() : formatNaira(totalEscrow)}
+          />
         </div>
 
         {role === "vendor" ? (
@@ -156,6 +171,9 @@ export default function DashboardPage() {
                 <PackagePlus className="size-5 text-teal-600" /> Add rental listing
               </h2>
               <form onSubmit={handleCreateListing} className="mt-5 space-y-4">
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
+                  {legalUseWarning} Clearly state the item's current condition. Missing or vague condition details can weaken a vendor's dispute protection.
+                </div>
                 <Input name="title" value={form.title} onChange={handleListingChange} placeholder="Listing title" required />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <select
@@ -193,7 +211,16 @@ export default function DashboardPage() {
                 </div>
                 <Input name="location" value={form.location} onChange={handleListingChange} placeholder="Pickup location" required />
                 <Input name="deliveryArea" value={form.deliveryArea} onChange={handleListingChange} placeholder="Delivery coverage" required />
-                <Input name="imageUrl" value={form.imageUrl} onChange={handleListingChange} placeholder="Photo URL" />
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-slate-700">Photo URLs, up to 10</span>
+                  <Textarea
+                    name="imageUrls"
+                    value={form.imageUrls}
+                    onChange={handleListingChange}
+                    rows={3}
+                    placeholder="Separate image URLs with commas. Production uploads should cap files at 5 MB each."
+                  />
+                </label>
                 <Button className="w-full bg-teal-500 text-white hover:bg-teal-600">Save listing</Button>
               </form>
               {createdListingId && (
@@ -216,6 +243,60 @@ export default function DashboardPage() {
                 {(vendorListings.length ? vendorListings : listings.slice(0, 2)).map((listing) => (
                   <ListingRow key={listing.id} listing={listing} />
                 ))}
+              </div>
+            </Card>
+          </div>
+        ) : role === "logistics" ? (
+          <div className="mt-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+            <Card className="rounded-lg border-slate-200 bg-white p-6">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold">Provider profile</h2>
+                {session?.verified ? (
+                  <Badge className="bg-teal-50 text-teal-700">
+                    <BadgeCheck /> Logistics verified
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">KYC pending</Badge>
+                )}
+              </div>
+              <div className="mt-5 space-y-3 text-sm">
+                <InfoLine label="Provider" value={session?.businessName || `${session?.firstName || "Demo"} ${session?.lastName || "Provider"}`} />
+                <InfoLine label="Contact phone" value={session?.phone || "Not set"} />
+                <InfoLine label="Vehicle" value={session?.vehicleType || "Pending vehicle"} />
+                <InfoLine label="Plate number" value={session?.plateNumber || "Pending plate"} />
+                <InfoLine label="Coverage" value={session?.coverageArea || session?.area || "Lagos"} />
+              </div>
+              <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+                Logistics providers must not knowingly transport illegal, restricted, stolen, counterfeit, dangerous, or illicit items. Suspicious dispatches should be rejected or escalated before pickup.
+              </div>
+            </Card>
+
+            <Card className="rounded-lg border-slate-200 bg-white p-6">
+              <h2 className="text-xl font-semibold">Assigned i.Go-Logistics dispatches</h2>
+              <div className="mt-5 space-y-4">
+                {visibleDispatchBookings.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+                    <p className="font-semibold">No dispatches assigned yet</p>
+                    <p className="mt-2 text-sm text-slate-600">When a renter chooses i.Go-Logistics, assigned pickup and delivery jobs will appear here.</p>
+                  </div>
+                ) : (
+                  visibleDispatchBookings.map((booking) => (
+                    <Link key={booking.id} href={`/bookings/${booking.id}`}>
+                      <div className="rounded-lg border border-slate-200 p-4 transition hover:border-teal-300">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="font-semibold">{booking.title}</p>
+                          <Badge className="bg-teal-50 text-teal-700">{booking.dispatch?.status.replaceAll("_", " ")}</Badge>
+                        </div>
+                        <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
+                          <InfoLine label="Pickup" value={booking.dispatch?.pickupArea || "Pending"} />
+                          <InfoLine label="Delivery" value={booking.dispatch?.deliveryArea || "Pending"} />
+                          <InfoLine label="Vendor" value={booking.dispatch?.vendorContact.name || booking.vendorName} />
+                          <InfoLine label="Renter" value={booking.dispatch?.renterContact.name || booking.renterName} />
+                        </div>
+                      </div>
+                    </Link>
+                  ))
+                )}
               </div>
             </Card>
           </div>
@@ -288,5 +369,14 @@ function ListingRow({ listing, compact }: { listing: DemoListing; compact?: bool
         </div>
       </div>
     </Link>
+  )
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 rounded-md bg-slate-50 p-3">
+      <span className="text-slate-500">{label}</span>
+      <span className="text-right font-semibold text-slate-900">{value}</span>
+    </div>
   )
 }

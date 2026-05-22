@@ -35,6 +35,9 @@ export default function Home() {
             <Link href="/signup?role=vendor" className="hover:text-white">
               Become a vendor
             </Link>
+            <Link href="/signup?role=logistics" className="hover:text-white">
+              Logistics
+            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" className="hidden text-white hover:bg-white/10 hover:text-white sm:inline-flex">
@@ -66,9 +69,12 @@ export default function Home() {
                   Find rentals <ArrowRight />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-white/20 bg-transparent text-white hover:bg-white/10">
-                <Link href="/signup?role=vendor">List an item</Link>
-              </Button>
+            <Button asChild size="lg" variant="outline" className="border-white/20 bg-transparent text-white hover:bg-white/10">
+              <Link href="/signup?role=vendor">List an item</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline" className="border-white/20 bg-transparent text-white hover:bg-white/10">
+              <Link href="/signup?role=logistics">Join logistics</Link>
+            </Button>
             </div>
             <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
               {trustStats.map(([value, label]) => (
@@ -111,7 +117,7 @@ export default function Home() {
         <div className="grid gap-4 md:grid-cols-3">
           {[
             [ShieldCheck, "Virtual escrow", "Rental fee and deposit are tracked separately until return inspection."],
-            [Truck, "Lagos logistics", "Choose self-pickup or i.Go-Logistics flat-fee dispatch at checkout."],
+            [Truck, "Lagos logistics", "Choose self-pickup or i.Go-Logistics dispatch with registered providers."],
             [BadgeCheck, "Vendor verification", "NIN/BVN profile completion unlocks visible verified badges."],
           ].map(([Icon, title, body]) => (
             <Card key={title as string} className="rounded-lg border-slate-200 bg-white p-6 shadow-sm">

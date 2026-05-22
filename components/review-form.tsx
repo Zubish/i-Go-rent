@@ -27,9 +27,12 @@ export function ReviewForm({ bookingId, listingId, recipientId }: ReviewFormProp
       await submitReview({
         bookingId,
         listingId,
-        recipientId,
+        reviewerId: "demo-current-user",
+        reviewedUserId: recipientId,
         rating,
+        title: "Rental experience",
         comment,
+        reviewType: "renter",
       })
       setSubmitted(true)
       setComment("")

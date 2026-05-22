@@ -1,4 +1,4 @@
-export type UserRole = "renter" | "vendor"
+export type UserRole = "renter" | "vendor" | "logistics"
 
 export type DemoUser = {
   id: string
@@ -10,7 +10,27 @@ export type DemoUser = {
   area: string
   nin?: string
   bvn?: string
+  cac?: string
+  businessName?: string
+  licenseNumber?: string
+  vehicleType?: string
+  plateNumber?: string
+  coverageArea?: string
   verified: boolean
+}
+
+export type DemoLogisticsProvider = {
+  id: string
+  providerName: string
+  contactName: string
+  phone: string
+  email: string
+  vehicleType: string
+  plateNumber: string
+  coverageAreas: string[]
+  verified: boolean
+  rating: number
+  completedDispatches: number
 }
 
 export type DemoListing = {
@@ -36,6 +56,40 @@ export type DemoListing = {
 
 export type DeliveryType = "self-pickup" | "igo-logistics"
 
+export type DispatchStatus =
+  | "not_required"
+  | "pending_assignment"
+  | "assigned"
+  | "accepted_by_provider"
+  | "pickup_in_progress"
+  | "collected_from_vendor"
+  | "delivered_to_renter"
+  | "dispatch_completed"
+  | "dispatch_issue"
+
+export type DemoDispatch = {
+  id: string
+  provider: DemoLogisticsProvider
+  status: DispatchStatus
+  dispatchReference: string
+  pickupArea: string
+  deliveryArea: string
+  pickupWindow: string
+  deliveryWindow: string
+  dispatchFee: number
+  vendorContact: {
+    name: string
+    phone: string
+  }
+  renterContact: {
+    name: string
+    phone: string
+  }
+  handoverCode: string
+  instructions: string
+  assignedAt: string
+}
+
 export type DemoBooking = {
   id: string
   listingId: string
@@ -51,10 +105,18 @@ export type DemoBooking = {
   deliveryFee: number
   totalPaid: number
   escrowStatus: "held" | "returned_inspection_pending" | "released_to_vendor" | "deposit_refunded"
+  dispatch?: DemoDispatch | null
+  legalUseAccepted: boolean
+  conditionAcknowledged: boolean
   createdAt: string
 }
 
 export const logisticsFee = 6500
+export const maxListingImages = 10
+export const maxListingImageSizeMb = 5
+
+export const legalUseWarning =
+  "i.Go-rent is only for lawful rental transactions. Do not list, book, fund, or dispatch illegal, stolen, restricted, counterfeit, dangerous, or illicit items, and do not use the app for fraud, money laundering, or transactions that violate applicable law."
 
 export const lagosAreas = [
   "Lekki Phase 1",
@@ -81,6 +143,35 @@ export const categories = [
     description: "Cameras, production kits, tools, and creator equipment.",
   },
 ] as const
+
+export const seedLogisticsProviders: DemoLogisticsProvider[] = [
+  {
+    id: "logistics-island-runner",
+    providerName: "Island Runner Dispatch",
+    contactName: "Chidi Okafor",
+    phone: "0803 555 0198",
+    email: "dispatch@islandrunner.ng",
+    vehicleType: "Van",
+    plateNumber: "LSR-482-KJ",
+    coverageAreas: ["Lekki Phase 1", "Victoria Island", "Ikoyi", "Ajah"],
+    verified: true,
+    rating: 4.9,
+    completedDispatches: 214,
+  },
+  {
+    id: "logistics-mainland-link",
+    providerName: "Mainland Link Logistics",
+    contactName: "Aminat Bello",
+    phone: "0812 404 7788",
+    email: "ops@mainlandlink.ng",
+    vehicleType: "Cargo Bike",
+    plateNumber: "KJA-771-QP",
+    coverageAreas: ["Yaba", "Surulere", "Ikeja", "Maryland"],
+    verified: true,
+    rating: 4.8,
+    completedDispatches: 167,
+  },
+]
 
 export const seedListings: DemoListing[] = [
   {
@@ -196,4 +287,10 @@ export function calculateBookingTotal(listing: DemoListing, startDate: string, e
     deliveryFee,
     totalPaid: rentalFee + listing.securityDeposit + deliveryFee,
   }
+}
+
+export function getRoleLabel(role: UserRole) {
+  if (role === "vendor") return "Vendor"
+  if (role === "logistics") return "Logistics Provider"
+  return "Renter"
 }

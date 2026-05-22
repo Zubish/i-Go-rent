@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, BadgeCheck, CalendarDays, MapPin, ShieldCheck, Star, Truck } from "lucide-react"
+import { AlertTriangle, ArrowLeft, BadgeCheck, CalendarDays, MapPin, ShieldCheck, Star, Truck } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { formatNaira, type DemoListing } from "@/lib/demo-marketplace"
+import { formatNaira, maxListingImages, type DemoListing } from "@/lib/demo-marketplace"
 import { getListingById } from "@/lib/demo-client-store"
 
 export default function ListingDetailPage() {
@@ -55,6 +55,13 @@ export default function ListingDetailPage() {
               ))}
             </div>
           </div>
+          {listing.images.length > 3 && (
+            <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
+              {listing.images.slice(3, maxListingImages).map((image, index) => (
+                <img key={image + index} src={image} alt="" className="h-24 w-full rounded-lg object-cover" />
+              ))}
+            </div>
+          )}
 
           <Card className="mt-6 rounded-lg border-slate-200 bg-white p-6">
             <div className="flex flex-wrap gap-2">
@@ -64,6 +71,9 @@ export default function ListingDetailPage() {
             </div>
             <h1 className="mt-4 text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">{listing.title}</h1>
             <p className="mt-4 leading-7 text-slate-600">{listing.description}</p>
+            <p className="mt-3 text-sm text-slate-500">
+              {listing.images.slice(0, maxListingImages).length} of {maxListingImages} allowed listing photos shown.
+            </p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               <div className="rounded-md bg-slate-50 p-4">
@@ -79,6 +89,20 @@ export default function ListingDetailPage() {
               <div className="rounded-md bg-slate-50 p-4">
                 <p className="text-xs text-slate-500">Area</p>
                 <p className="mt-1 font-semibold">{listing.vendorArea}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-1 size-5" />
+                <div>
+                  <h2 className="font-semibold">Condition protection</h2>
+                  <p className="mt-2 text-sm leading-6">
+                    Vendors must disclose current condition, known defects, missing accessories, and usage limits.
+                    Renters should confirm condition on receipt before use. Misuse, damage, missing parts, or late return
+                    can lead to deposit deductions, while unclear vendor condition notes can weaken a vendor's dispute claim.
+                  </p>
+                </div>
               </div>
             </div>
 

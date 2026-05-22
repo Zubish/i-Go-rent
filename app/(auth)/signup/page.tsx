@@ -5,14 +5,16 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { BadgeCheck, ShieldCheck } from "lucide-react"
+import { BadgeCheck, ShieldCheck, Truck } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { createDemoSession } from "@/lib/demo-client-store"
-import { lagosAreas, type UserRole } from "@/lib/demo-marketplace"
+import { getRoleLabel, lagosAreas, legalUseWarning, type UserRole } from "@/lib/demo-marketplace"
+
+const roles: UserRole[] = ["renter", "vendor", "logistics"]
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -25,22 +27,31 @@ export default function SignUpPage() {
     area: "Lekki Phase 1",
     nin: "",
     bvn: "",
+    cac: "",
+    businessName: "",
+    licenseNumber: "",
+    vehicleType: "",
+    plateNumber: "",
+    coverageArea: "Lekki Phase 1, Victoria Island",
+    legalAccepted: false,
   })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get("role") === "vendor") setRole("vendor")
+    if (params.get("role") === "logistics") setRole("logistics")
   }, [])
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = event.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    const { name, value, type } = event.target
+    const checked = type === "checkbox" ? (event.target as HTMLInputElement).checked : undefined
+    setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }))
   }
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
     createDemoSession({ role, ...formData })
-    router.push(role === "vendor" ? "/dashboard?role=vendor" : "/browse")
+    router.push(role === "renter" ? "/browse" : `/dashboard?role=${role}`)
   }
 
   return (
@@ -60,6 +71,9 @@ export default function SignUpPage() {
             <p className="flex items-center gap-3">
               <BadgeCheck className="size-5 text-teal-300" /> Vendor NIN/BVN placeholders enable verified badges
             </p>
+            <p className="flex items-center gap-3">
+              <Truck className="size-5 text-teal-300" /> Logistics providers can receive dispatch assignments
+            </p>
           </div>
         </section>
 
@@ -69,23 +83,20 @@ export default function SignUpPage() {
           </Link>
           <div className="mt-6">
             <p className="text-sm font-medium text-teal-700">Create account</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Start as a renter or vendor</h2>
+            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Start with the right account</h2>
           </div>
 
-          <div className="mt-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1">
-            {[
-              ["renter", "Renter"],
-              ["vendor", "Vendor"],
-            ].map(([value, label]) => (
+          <div className="mt-6 grid grid-cols-3 rounded-lg bg-slate-100 p-1">
+            {roles.map((value) => (
               <button
                 key={value}
                 type="button"
-                onClick={() => setRole(value as UserRole)}
+                onClick={() => setRole(value)}
                 className={`rounded-md px-4 py-2 text-sm font-medium ${
                   role === value ? "bg-[#071b2f] text-white" : "text-slate-600"
                 }`}
               >
-                {label}
+                {value === "logistics" ? "Logistics" : getRoleLabel(value)}
               </button>
             ))}
           </div>
@@ -108,19 +119,65 @@ export default function SignUpPage() {
               ))}
             </select>
 
+            {role === "renter" && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">Renter KYC</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Input name="nin" placeholder="NIN" value={formData.nin} onChange={handleChange} />
+                  <Input name="bvn" placeholder="BVN for higher-value bookings" value={formData.bvn} onChange={handleChange} />
+                </div>
+              </div>
+            )}
+
             {role === "vendor" && (
               <div className="rounded-lg border border-teal-100 bg-teal-50 p-4">
                 <p className="text-sm font-semibold text-teal-900">Vendor verification placeholders</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <Input name="nin" placeholder="NIN" value={formData.nin} onChange={handleChange} />
                   <Input name="bvn" placeholder="BVN" value={formData.bvn} onChange={handleChange} />
+                  <Input name="businessName" placeholder="Business name" value={formData.businessName} onChange={handleChange} />
+                  <Input name="cac" placeholder="CAC reg no. optional" value={formData.cac} onChange={handleChange} />
                 </div>
                 <p className="mt-2 text-xs text-teal-800">Add both values to show a verified vendor badge in demo mode.</p>
               </div>
             )}
 
+            {role === "logistics" && (
+              <div className="rounded-lg border border-teal-100 bg-teal-50 p-4">
+                <p className="text-sm font-semibold text-teal-900">Logistics provider verification</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Input name="businessName" placeholder="Provider / business name" value={formData.businessName} onChange={handleChange} />
+                  <Input name="licenseNumber" placeholder="Driver license / rider permit" value={formData.licenseNumber} onChange={handleChange} />
+                  <Input name="nin" placeholder="NIN" value={formData.nin} onChange={handleChange} />
+                  <Input name="bvn" placeholder="BVN" value={formData.bvn} onChange={handleChange} />
+                  <Input name="vehicleType" placeholder="Vehicle type" value={formData.vehicleType} onChange={handleChange} />
+                  <Input name="plateNumber" placeholder="Plate number" value={formData.plateNumber} onChange={handleChange} />
+                </div>
+                <Input
+                  name="coverageArea"
+                  className="mt-3"
+                  placeholder="Coverage areas, comma separated"
+                  value={formData.coverageArea}
+                  onChange={handleChange}
+                />
+                <p className="mt-2 text-xs text-teal-800">Verified providers can receive i.Go-Logistics dispatch assignments.</p>
+              </div>
+            )}
+
+            <label className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              <input
+                type="checkbox"
+                name="legalAccepted"
+                checked={formData.legalAccepted}
+                onChange={handleChange}
+                required
+                className="mt-1"
+              />
+              <span>{legalUseWarning}</span>
+            </label>
+
             <Button className="w-full bg-teal-500 text-white hover:bg-teal-600">
-              {role === "vendor" ? "Create vendor profile" : "Create renter profile"}
+              Create {getRoleLabel(role).toLowerCase()} profile
             </Button>
           </form>
 

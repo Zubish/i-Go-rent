@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ArrowLeft, CheckCircle2, ShieldCheck, Truck } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Phone, ShieldCheck, Truck } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -81,10 +81,54 @@ export default function BookingDetailPage() {
                     <h2 className="font-semibold">Delivery</h2>
                     <p className="mt-2 text-sm leading-6 text-slate-600">
                       {booking.deliveryType === "igo-logistics"
-                        ? "i.Go-Logistics flat-fee dispatch selected."
+                        ? "i.Go-Logistics dispatch selected. Provider details are shared with both vendor and renter after escrow funding."
                         : "Self-pickup selected. Coordinate pickup with the vendor."}
                     </p>
+                    {booking.dispatch && (
+                      <div className="mt-4 rounded-md bg-teal-50 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-medium text-teal-700">Dispatch reference</p>
+                            <p className="font-semibold text-teal-950">{booking.dispatch.dispatchReference}</p>
+                          </div>
+                          <Badge className="bg-white text-teal-700">{booking.dispatch.status.replaceAll("_", " ")}</Badge>
+                        </div>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <Info label="Provider" value={booking.dispatch.provider.providerName} />
+                          <Info label="Provider contact" value={`${booking.dispatch.provider.contactName} · ${booking.dispatch.provider.phone}`} />
+                          <Info label="Vehicle" value={`${booking.dispatch.provider.vehicleType} · ${booking.dispatch.provider.plateNumber}`} />
+                          <Info label="Handover code" value={booking.dispatch.handoverCode} />
+                          <Info label="Pickup window" value={booking.dispatch.pickupWindow} />
+                          <Info label="Delivery window" value={booking.dispatch.deliveryWindow} />
+                        </div>
+                        <div className="mt-4 flex items-start gap-2 text-sm leading-6 text-teal-950">
+                          <Phone className="mt-0.5 size-4" />
+                          <p>
+                            Vendor contact: {booking.dispatch.vendorContact.name} · {booking.dispatch.vendorContact.phone}. Renter
+                            contact: {booking.dispatch.renterContact.name} · {booking.dispatch.renterContact.phone}.
+                          </p>
+                        </div>
+                        <p className="mt-3 text-sm leading-6 text-teal-950">{booking.dispatch.instructions}</p>
+                      </div>
+                    )}
                   </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
+                <h2 className="font-semibold">Condition and legal-use confirmations</h2>
+                <div className="mt-3 space-y-2 text-sm leading-6">
+                  <p>
+                    Legal-use policy accepted: <span className="font-semibold">{booking.legalUseAccepted ? "Yes" : "No"}</span>
+                  </p>
+                  <p>
+                    Renter condition confirmation accepted:{" "}
+                    <span className="font-semibold">{booking.conditionAcknowledged ? "Yes" : "No"}</span>
+                  </p>
+                  <p>
+                    Renters should inspect on receipt and dispute before use if the condition differs. Vendors risk losing
+                    dispute protection if item condition was not clearly described before handover.
+                  </p>
                 </div>
               </section>
             </div>

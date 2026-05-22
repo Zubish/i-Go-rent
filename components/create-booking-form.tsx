@@ -14,10 +14,12 @@ import {
   calculateBookingTotal,
   formatNaira,
   logisticsFee,
+  legalUseWarning,
   type DeliveryType,
   type DemoListing,
+  type DemoLogisticsProvider,
 } from "@/lib/demo-marketplace"
-import { createDemoBooking, getDemoSession, getListingById } from "@/lib/demo-client-store"
+import { createDemoBooking, getDemoSession, getListingById, getSuggestedLogisticsProvider } from "@/lib/demo-client-store"
 
 export default function CreateBookingForm() {
   const router = useRouter()
@@ -29,12 +31,23 @@ export default function CreateBookingForm() {
   const [endDate, setEndDate] = useState("")
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("self-pickup")
   const [renterName, setRenterName] = useState("")
+  const [renterPhone, setRenterPhone] = useState("")
+  const [suggestedProvider, setSuggestedProvider] = useState<DemoLogisticsProvider | null>(null)
+  const [legalUseAccepted, setLegalUseAccepted] = useState(false)
+  const [conditionAcknowledged, setConditionAcknowledged] = useState(false)
   const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
-    if (listingId) setListing(getListingById(listingId) || null)
+    if (listingId) {
+      const nextListing = getListingById(listingId) || null
+      setListing(nextListing)
+      setSuggestedProvider(nextListing ? getSuggestedLogisticsProvider(nextListing) : null)
+    }
     const session = getDemoSession()
-    if (session) setRenterName(`${session.firstName} ${session.lastName}`)
+    if (session) {
+      setRenterName(`${session.firstName} ${session.lastName}`)
+      setRenterPhone(session.phone)
+    }
   }, [listingId])
 
   const totals = useMemo(() => {
@@ -42,7 +55,7 @@ export default function CreateBookingForm() {
     return calculateBookingTotal(listing, startDate, endDate, deliveryType)
   }, [deliveryType, endDate, listing, startDate])
 
-  const canBook = Boolean(listing && renterName && totals && totals.days > 0)
+  const canBook = Boolean(listing && renterName && totals && totals.days > 0 && legalUseAccepted && conditionAcknowledged)
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -52,9 +65,12 @@ export default function CreateBookingForm() {
     const booking = createDemoBooking({
       listing,
       renterName,
+      renterPhone,
       startDate,
       endDate,
       deliveryType,
+      legalUseAccepted,
+      conditionAcknowledged,
     })
 
     window.setTimeout(() => {
@@ -133,14 +149,64 @@ export default function CreateBookingForm() {
               </label>
             ))}
           </div>
+          {deliveryType === "igo-logistics" && suggestedProvider && (
+            <div className="mt-4 rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm text-teal-950">
+              <p className="font-semibold">Dispatch provider selected after escrow funding</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <DispatchPreview label="Provider" value={suggestedProvider.providerName} />
+                <DispatchPreview label="Contact" value={`${suggestedProvider.contactName} · ${suggestedProvider.phone}`} />
+                <DispatchPreview label="Vehicle" value={`${suggestedProvider.vehicleType} · ${suggestedProvider.plateNumber}`} />
+                <DispatchPreview label="Coverage" value={suggestedProvider.coverageAreas.join(", ")} />
+              </div>
+              <p className="mt-3 leading-6">
+                These details are sent to both vendor and renter once the booking is funded. Vendor should release the
+                item only after handover code and condition proof are confirmed.
+              </p>
+            </div>
+          )}
         </Card>
 
         <Card className="rounded-lg border-slate-200 bg-white p-6">
           <h3 className="text-lg font-semibold">Renter details</h3>
-          <label className="mt-4 block">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-700">Name for booking</span>
             <Input value={renterName} onChange={(event) => setRenterName(event.target.value)} placeholder="Your full name" required />
-          </label>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-700">Phone for handover</span>
+              <Input value={renterPhone} onChange={(event) => setRenterPhone(event.target.value)} placeholder="080..." required />
+            </label>
+          </div>
+        </Card>
+
+        <Card className="rounded-lg border-slate-200 bg-white p-6">
+          <h3 className="text-lg font-semibold">Required confirmations</h3>
+          <div className="mt-4 space-y-3">
+            <label className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              <input
+                type="checkbox"
+                checked={legalUseAccepted}
+                onChange={(event) => setLegalUseAccepted(event.target.checked)}
+                required
+                className="mt-1"
+              />
+              <span>{legalUseWarning} Misuse may lead to cancellation, frozen escrow, suspension, and lawful reporting where required.</span>
+            </label>
+            <label className="flex gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+              <input
+                type="checkbox"
+                checked={conditionAcknowledged}
+                onChange={(event) => setConditionAcknowledged(event.target.checked)}
+                required
+                className="mt-1"
+              />
+              <span>
+                I will inspect the item on receipt, confirm its condition before use, and open a dispute immediately if
+                the condition differs from the vendor's listing.
+              </span>
+            </label>
+          </div>
         </Card>
       </div>
 
@@ -187,5 +253,14 @@ export default function CreateBookingForm() {
         </Card>
       </aside>
     </form>
+  )
+}
+
+function DispatchPreview({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs text-teal-700">{label}</p>
+      <p className="font-semibold">{value}</p>
+    </div>
   )
 }

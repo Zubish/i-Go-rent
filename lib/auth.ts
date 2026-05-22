@@ -1,9 +1,10 @@
-import { jwtVerify, SignJWT } from "jose"
+import { jwtVerify, SignJWT, type JWTPayload } from "jose"
 import { cookies } from "next/headers"
 
 const secret = new TextEncoder().encode(process.env.AUTH_SECRET || "your-secret-key-change-in-production")
 
-export interface AuthPayload {
+export interface AuthPayload extends JWTPayload {
+  id: string
   userId: string
   email: string
   userType: "renter" | "host" | "both"
@@ -22,7 +23,7 @@ export async function createToken(payload: AuthPayload) {
 export async function verifyToken(token: string) {
   try {
     const verified = await jwtVerify(token, secret)
-    return verified.payload as AuthPayload
+    return verified.payload as unknown as AuthPayload
   } catch (err) {
     return null
   }

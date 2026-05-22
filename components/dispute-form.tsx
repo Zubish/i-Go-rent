@@ -28,11 +28,12 @@ export function DisputeForm({ bookingId, listingId, otherPartyId, rentalAmount }
     try {
       await createDispute({
         bookingId,
-        listingId,
-        otherPartyId,
+        escrowId: bookingId,
+        initiatedBy: "demo-current-user",
+        opposedBy: otherPartyId,
         reason,
         description,
-        claimAmount,
+        evidenceUrls: [],
       })
       setSubmitted(true)
     } catch (error) {

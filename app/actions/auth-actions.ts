@@ -64,6 +64,7 @@ export async function signUp(formData: {
 
     // Create auth token
     const token = await createToken({
+      id: user.id,
       userId: user.id,
       email: user.email,
       userType: user.user_type,
@@ -96,6 +97,7 @@ export async function signIn(email: string, password: string) {
 
     // Create auth token
     const token = await createToken({
+      id: user.id,
       userId: user.id,
       email: user.email,
       userType: user.user_type,
