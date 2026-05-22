@@ -92,6 +92,21 @@ export default function ListingDetailPage() {
               </div>
             </div>
 
+            <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-5">
+              <h2 className="font-semibold">Item condition record</h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <ConditionDetail label="Current condition" value={listing.condition} />
+                <ConditionDetail label="Replacement value" value={formatNaira(listing.replacementValue)} />
+                <ConditionDetail label="Late return fee" value={`${formatNaira(listing.lateReturnFee)} / day`} />
+                <ConditionDetail label="Maximum rental" value={`${listing.maxRentalDays} days`} />
+              </div>
+              <div className="mt-4 space-y-4">
+                <ConditionDetail label="Known defects" value={listing.knownDefects} />
+                <ConditionDetail label="Accessories included" value={listing.accessories} />
+                <ConditionDetail label="Usage limits" value={listing.usageLimits} />
+              </div>
+            </div>
+
             <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-950">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-1 size-5" />
@@ -128,6 +143,14 @@ export default function ListingDetailPage() {
               <div className="flex justify-between gap-4">
                 <span className="text-slate-600">Security deposit</span>
                 <span className="font-semibold">{formatNaira(listing.securityDeposit)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-600">Max rental</span>
+                <span className="font-semibold">{listing.maxRentalDays} days</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-600">Late fee</span>
+                <span className="font-semibold">{formatNaira(listing.lateReturnFee)} / day</span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-slate-600">Escrow model</span>
@@ -170,5 +193,14 @@ export default function ListingDetailPage() {
         </aside>
       </section>
     </main>
+  )
+}
+
+function ConditionDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-semibold leading-6 text-slate-900">{value}</p>
+    </div>
   )
 }

@@ -13,11 +13,13 @@ import { Input } from "@/components/ui/input"
 import {
   calculateBookingTotal,
   formatNaira,
+  getKycStatus,
   logisticsFee,
   legalUseWarning,
   type DeliveryType,
   type DemoListing,
   type DemoLogisticsProvider,
+  type DemoUser,
 } from "@/lib/demo-marketplace"
 import { createDemoBooking, getDemoSession, getListingById, getSuggestedLogisticsProvider } from "@/lib/demo-client-store"
 
@@ -33,6 +35,7 @@ export default function CreateBookingForm() {
   const [renterName, setRenterName] = useState("")
   const [renterPhone, setRenterPhone] = useState("")
   const [suggestedProvider, setSuggestedProvider] = useState<DemoLogisticsProvider | null>(null)
+  const [session, setSession] = useState<DemoUser | null>(null)
   const [legalUseAccepted, setLegalUseAccepted] = useState(false)
   const [conditionAcknowledged, setConditionAcknowledged] = useState(false)
   const [processing, setProcessing] = useState(false)
@@ -44,6 +47,7 @@ export default function CreateBookingForm() {
       setSuggestedProvider(nextListing ? getSuggestedLogisticsProvider(nextListing) : null)
     }
     const session = getDemoSession()
+    setSession(session)
     if (session) {
       setRenterName(`${session.firstName} ${session.lastName}`)
       setRenterPhone(session.phone)
@@ -55,7 +59,20 @@ export default function CreateBookingForm() {
     return calculateBookingTotal(listing, startDate, endDate, deliveryType)
   }, [deliveryType, endDate, listing, startDate])
 
-  const canBook = Boolean(listing && renterName && totals && totals.days > 0 && legalUseAccepted && conditionAcknowledged)
+  const renterKyc = getKycStatus(session, "renter")
+  const exceedsMaxDays = Boolean(listing && totals && totals.days > listing.maxRentalDays)
+  const vendorReady = Boolean(listing?.vendorVerified)
+  const canBook = Boolean(
+    listing &&
+      renterName &&
+      totals &&
+      totals.days > 0 &&
+      !exceedsMaxDays &&
+      renterKyc.canBook &&
+      vendorReady &&
+      legalUseAccepted &&
+      conditionAcknowledged,
+  )
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -101,6 +118,39 @@ export default function CreateBookingForm() {
               <p className="mt-2 text-sm text-slate-600">{listing.vendorName} · {listing.location}</p>
             </div>
             <img src={listing.images[0]} alt="" className="h-24 w-32 rounded-md object-cover" />
+          </div>
+        </Card>
+
+        <Card className="rounded-lg border-slate-200 bg-white p-6">
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            <ShieldCheck className="size-5 text-teal-600" /> Verification and condition contract
+          </h3>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <StatusBox
+              label="Renter KYC"
+              value={renterKyc.label}
+              tone={renterKyc.canBook ? "good" : "warn"}
+              detail={renterKyc.canBook ? "Standard bookings enabled." : `Missing: ${renterKyc.missing.join(", ")}`}
+            />
+            <StatusBox
+              label="Vendor verification"
+              value={listing.vendorVerified ? "Verified vendor" : "Vendor KYC pending"}
+              tone={listing.vendorVerified ? "good" : "warn"}
+              detail={listing.vendorVerified ? "Listing can be booked." : "This listing is visible but checkout is blocked."}
+            />
+          </div>
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ConditionLine label="Condition" value={listing.condition} />
+              <ConditionLine label="Max rental" value={`${listing.maxRentalDays} days`} />
+              <ConditionLine label="Replacement value" value={formatNaira(listing.replacementValue)} />
+              <ConditionLine label="Late return fee" value={`${formatNaira(listing.lateReturnFee)} / day`} />
+            </div>
+            <div className="mt-4 space-y-3">
+              <ConditionLine label="Known defects" value={listing.knownDefects} />
+              <ConditionLine label="Accessories" value={listing.accessories} />
+              <ConditionLine label="Usage limits" value={listing.usageLimits} />
+            </div>
           </div>
         </Card>
 
@@ -219,6 +269,10 @@ export default function CreateBookingForm() {
               <span className="font-semibold">{totals?.days || 0} days</span>
             </div>
             <div className="flex justify-between">
+              <span className={exceedsMaxDays ? "font-semibold text-red-600" : "text-slate-600"}>Max rental</span>
+              <span className={exceedsMaxDays ? "font-semibold text-red-600" : "font-semibold"}>{listing.maxRentalDays} days</span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-slate-600">Rental fee</span>
               <span className="font-semibold">{formatNaira(totals?.rentalFee || 0)}</span>
             </div>
@@ -237,6 +291,14 @@ export default function CreateBookingForm() {
               </div>
             </div>
           </div>
+
+          {(!renterKyc.canBook || !vendorReady || exceedsMaxDays) && (
+            <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              {!renterKyc.canBook && <p>Complete renter KYC before checkout. Missing: {renterKyc.missing.join(", ")}.</p>}
+              {!vendorReady && <p>This vendor must complete KYC before bookings can be accepted.</p>}
+              {exceedsMaxDays && <p>Selected duration exceeds this vendor's maximum rental period.</p>}
+            </div>
+          )}
 
           <div className="mt-5 rounded-md bg-[#071b2f] p-4 text-sm text-white">
             <div className="flex items-center gap-2 font-semibold text-teal-200">
@@ -261,6 +323,35 @@ function DispatchPreview({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-xs text-teal-700">{label}</p>
       <p className="font-semibold">{value}</p>
+    </div>
+  )
+}
+
+function StatusBox({
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  label: string
+  value: string
+  detail: string
+  tone: "good" | "warn"
+}) {
+  return (
+    <div className={`rounded-md p-4 ${tone === "good" ? "bg-teal-50 text-teal-950" : "bg-amber-50 text-amber-950"}`}>
+      <p className="text-xs opacity-80">{label}</p>
+      <p className="mt-1 font-semibold">{value}</p>
+      <p className="mt-2 text-xs leading-5">{detail}</p>
+    </div>
+  )
+}
+
+function ConditionLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-1 font-semibold text-slate-900">{value}</p>
     </div>
   )
 }

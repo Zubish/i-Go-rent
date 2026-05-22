@@ -8,8 +8,8 @@ import { ArrowLeft, CheckCircle2, Phone, ShieldCheck, Truck } from "lucide-react
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { formatNaira, type DemoBooking } from "@/lib/demo-marketplace"
-import { getBookingById, markReturnedAndInspected } from "@/lib/demo-client-store"
+import { createConditionSnapshot, formatNaira, type DemoBooking } from "@/lib/demo-marketplace"
+import { getBookingById, getListingById, markReturnedAndInspected } from "@/lib/demo-client-store"
 
 export default function BookingDetailPage() {
   const params = useParams()
@@ -36,6 +36,8 @@ export default function BookingDetailPage() {
     booking.escrowStatus === "deposit_refunded"
       ? "Returned and inspected. Deposit refund and vendor release are recorded."
       : "Funds are currently held in virtual escrow pending return inspection."
+  const fallbackListing = getListingById(booking.listingId)
+  const conditionSnapshot = booking.conditionSnapshot || (fallbackListing ? createConditionSnapshot(fallbackListing) : null)
 
   return (
     <main className="min-h-screen bg-[#f7fbfb]">
@@ -131,6 +133,29 @@ export default function BookingDetailPage() {
                   </p>
                 </div>
               </section>
+
+              {conditionSnapshot && (
+                <section className="rounded-lg border border-slate-200 bg-white p-5">
+                  <h2 className="font-semibold">Booking condition snapshot</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    This is the item-condition record captured for the booking. It should guide receipt confirmation,
+                    return inspection, and any dispute review.
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <Info label="Condition" value={conditionSnapshot.condition} />
+                    <Info label="Photos on record" value={`${conditionSnapshot.photoCount} photos`} />
+                    <Info label="Replacement value" value={formatNaira(conditionSnapshot.replacementValue)} />
+                    <Info label="Late return fee" value={`${formatNaira(conditionSnapshot.lateReturnFee)} / day`} />
+                    <Info label="Maximum rental" value={`${conditionSnapshot.maxRentalDays} days`} />
+                    <Info label="Vendor KYC" value={conditionSnapshot.vendorVerified ? "Verified" : "Pending"} />
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    <Info label="Known defects" value={conditionSnapshot.knownDefects} />
+                    <Info label="Accessories" value={conditionSnapshot.accessories} />
+                    <Info label="Usage limits" value={conditionSnapshot.usageLimits} />
+                  </div>
+                </section>
+              )}
             </div>
 
             <aside>

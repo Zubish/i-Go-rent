@@ -653,3 +653,30 @@ The next build phase should focus on replacing demo-only behavior with real prod
 6. Condition confirmation and dispute flows.
 7. Admin review tools.
 8. Production deployment checks.
+
+## Implementation Batch Log
+
+### Batch 1: Legal Use And Logistics Dispatch
+
+Implemented in demo mode:
+
+- App-wide legal-use warning.
+- Renter, vendor, and logistics-provider account roles.
+- Logistics-provider KYC placeholders.
+- Registered logistics provider seed data.
+- i.Go-Logistics dispatch assignment during checkout.
+- Dispatch provider details shared on booking confirmation.
+- Logistics-provider dashboard for assigned dispatches.
+- Renter condition and legal-use confirmations at checkout.
+
+### Batch 2: KYC Gates And Item Condition Contract
+
+Implemented in demo mode:
+
+- Renter, vendor, and logistics-provider KYC status helpers.
+- Vendor listing creation blocked until vendor KYC is sufficient.
+- Renter checkout blocked until renter KYC is sufficient.
+- Checkout blocked for listings from unverified vendors.
+- Vendor condition contract fields: known defects, accessories, usage limits, replacement value, late-return fee, and maximum rental duration.
+- Listing detail condition record visible before checkout.
+- Booking condition snapshot captured for receipt confirmation, return inspection, and future dispute review.

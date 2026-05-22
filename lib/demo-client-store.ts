@@ -2,6 +2,8 @@
 
 import {
   calculateBookingTotal,
+  createConditionSnapshot,
+  getKycStatus,
   seedLogisticsProviders,
   seedListings,
   type DeliveryType,
@@ -156,9 +158,21 @@ export function createVendorListing(input: {
   location: string
   deliveryArea: string
   condition: DemoListing["condition"]
+  knownDefects: string
+  accessories: string
+  usageLimits: string
+  replacementValue: number
+  lateReturnFee: number
+  maxRentalDays: number
   imageUrls: string
 }) {
   const session = getDemoSession()
+  const kycStatus = getKycStatus(session, "vendor")
+
+  if (!kycStatus.canList) {
+    throw new Error(`Vendor KYC incomplete: ${kycStatus.missing.join(", ")}`)
+  }
+
   const vendorName = session ? `${session.firstName} ${session.lastName}` : "New Lagos Vendor"
   const images = splitCoverageAreas(input.imageUrls).slice(0, 10)
   const listing: DemoListing = {
@@ -175,6 +189,12 @@ export function createVendorListing(input: {
     location: input.location,
     deliveryArea: input.deliveryArea,
     condition: input.condition,
+    knownDefects: input.knownDefects,
+    accessories: input.accessories,
+    usageLimits: input.usageLimits,
+    replacementValue: input.replacementValue,
+    lateReturnFee: input.lateReturnFee,
+    maxRentalDays: input.maxRentalDays,
     rating: 0,
     reviews: 0,
     images: images.length
@@ -286,6 +306,7 @@ export function createDemoBooking(input: {
         : null,
     legalUseAccepted: input.legalUseAccepted,
     conditionAcknowledged: input.conditionAcknowledged,
+    conditionSnapshot: createConditionSnapshot(input.listing),
     createdAt: new Date().toISOString(),
   }
 
