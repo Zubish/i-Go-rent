@@ -14,9 +14,9 @@ function getSqlClient() {
   return client
 }
 
-export async function sql(query: string, params: any[] = []) {
-  const queryClient = getSqlClient() as unknown as (query: string, params?: any[]) => Promise<any[]>
-  return queryClient(query, params)
+export async function sql(query: string, params: any[] = []): Promise<any[]> {
+  const queryClient = getSqlClient()
+  return (await queryClient.query(query, params)) as any[]
 }
 
 

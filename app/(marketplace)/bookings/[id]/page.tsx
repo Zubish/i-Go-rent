@@ -8,16 +8,52 @@ import { ArrowLeft, CheckCircle2, Phone, ShieldCheck, Truck } from "lucide-react
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { createConditionSnapshot, formatNaira, type DemoBooking } from "@/lib/demo-marketplace"
-import { getBookingById, getListingById, markReturnedAndInspected } from "@/lib/demo-client-store"
+import { formatNaira, type DemoBooking } from "@/lib/demo-marketplace"
 
 export default function BookingDetailPage() {
   const params = useParams()
   const [booking, setBooking] = useState<DemoBooking | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState(false)
 
   useEffect(() => {
-    setBooking(getBookingById(params.id as string) || null)
+    async function loadBooking() {
+      setLoading(true)
+      try {
+        const response = await fetch(`/api/bookings/${params.id}`, { cache: "no-store" })
+        const data = await response.json()
+        setBooking(response.ok ? data.booking : null)
+      } catch {
+        setBooking(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (params.id) loadBooking()
   }, [params.id])
+
+  async function handleReturnedAndInspected() {
+    if (!booking) return
+    setUpdating(true)
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}`, { method: "PATCH" })
+      const data = await response.json()
+      if (response.ok && data.booking) setBooking(data.booking)
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7fbfb] p-6">
+        <Card className="max-w-md rounded-lg p-8 text-center">
+          <p className="font-semibold">Loading booking...</p>
+        </Card>
+      </main>
+    )
+  }
 
   if (!booking) {
     return (
@@ -36,8 +72,7 @@ export default function BookingDetailPage() {
     booking.escrowStatus === "deposit_refunded"
       ? "Returned and inspected. Deposit refund and vendor release are recorded."
       : "Funds are currently held in virtual escrow pending return inspection."
-  const fallbackListing = getListingById(booking.listingId)
-  const conditionSnapshot = booking.conditionSnapshot || (fallbackListing ? createConditionSnapshot(fallbackListing) : null)
+  const conditionSnapshot = booking.conditionSnapshot
 
   return (
     <main className="min-h-screen bg-[#f7fbfb]">
@@ -173,12 +208,12 @@ export default function BookingDetailPage() {
 
               <Button
                 type="button"
-                onClick={() => setBooking(markReturnedAndInspected(booking.id) || booking)}
-                disabled={booking.escrowStatus === "deposit_refunded"}
+                onClick={handleReturnedAndInspected}
+                disabled={booking.escrowStatus === "deposit_refunded" || updating}
                 className="mt-4 w-full bg-teal-500 text-white hover:bg-teal-600"
               >
                 <CheckCircle2 />
-                Mark returned and inspected
+                {updating ? "Updating..." : "Mark returned and inspected"}
               </Button>
             </aside>
           </div>

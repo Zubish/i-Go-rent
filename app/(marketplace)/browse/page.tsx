@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { categories, formatNaira, type DemoListing } from "@/lib/demo-marketplace"
-import { getAllListings } from "@/lib/demo-client-store"
 
 export default function BrowseListingsPage() {
   const [listings, setListings] = useState<DemoListing[]>([])
@@ -18,12 +17,27 @@ export default function BrowseListingsPage() {
   const [area, setArea] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setListings(getAllListings())
     const params = new URLSearchParams(window.location.search)
     const initialCategory = params.get("category")
     if (initialCategory) setCategory(initialCategory)
+
+    async function loadListings() {
+      setLoading(true)
+      try {
+        const response = await fetch("/api/listings", { cache: "no-store" })
+        const data = await response.json()
+        setListings(Array.isArray(data.listings) ? data.listings : [])
+      } catch {
+        setListings([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadListings()
   }, [])
 
   const filteredListings = useMemo(() => {
@@ -162,7 +176,13 @@ export default function BrowseListingsPage() {
           ))}
         </div>
 
-        {filteredListings.length === 0 && (
+        {loading && (
+          <Card className="mt-8 rounded-lg border-slate-200 bg-white p-10 text-center">
+            <p className="font-semibold">Loading Lagos rentals...</p>
+          </Card>
+        )}
+
+        {!loading && filteredListings.length === 0 && (
           <Card className="mt-8 rounded-lg border-slate-200 bg-white p-10 text-center">
             <p className="font-semibold">No matching rentals yet</p>
             <p className="mt-2 text-sm text-slate-600">Try a broader Lagos area or another category.</p>

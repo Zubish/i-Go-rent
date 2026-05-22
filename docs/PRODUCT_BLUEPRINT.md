@@ -698,3 +698,21 @@ Remaining for later production batches:
 - Replace simulated escrow with Blackcrow API transactions and webhooks.
 - Replace placeholder KYC with a real KYC provider.
 - Add production file upload/storage for listing images.
+
+### Batch 4: Database-First Marketplace Core
+
+Implemented:
+
+- Added live database seed data for Lagos categories, verified vendors, verified logistics providers, and baseline marketplace listings.
+- Browse, listing detail, homepage featured listings, checkout, booking detail, and dashboard now use API/database records for marketplace data.
+- Vendor listing creation now writes to the database with vendor KYC gating and a 10-photo URL cap.
+- Renter booking creation now writes bookings, virtual escrow records, condition snapshots, and i.Go-Logistics dispatch assignments to the database.
+- Booking detail now reads live booking/escrow/dispatch state and updates return inspection status through the booking API.
+- Shared database wrapper now uses the Neon serverless driver's supported query API.
+
+Remaining for later production batches:
+
+- Replace URL-based listing images with production upload/storage and file-size enforcement.
+- Replace virtual escrow records with Blackcrow API transactions and webhooks.
+- Add availability calendar locking and vendor approval workflow.
+- Add full dispute evidence upload, messaging, and admin resolution tools.

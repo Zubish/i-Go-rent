@@ -9,15 +9,38 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { formatNaira, maxListingImages, type DemoListing } from "@/lib/demo-marketplace"
-import { getListingById } from "@/lib/demo-client-store"
 
 export default function ListingDetailPage() {
   const params = useParams()
   const [listing, setListing] = useState<DemoListing | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setListing(getListingById(params.id as string) || null)
+    async function loadListing() {
+      setLoading(true)
+      try {
+        const response = await fetch(`/api/listings/${params.id}`, { cache: "no-store" })
+        const data = await response.json()
+        setListing(response.ok ? data.listing : null)
+      } catch {
+        setListing(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (params.id) loadListing()
   }, [params.id])
+
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7fbfb] p-6">
+        <Card className="max-w-md rounded-lg p-8 text-center">
+          <p className="text-lg font-semibold">Loading listing...</p>
+        </Card>
+      </main>
+    )
+  }
 
   if (!listing) {
     return (

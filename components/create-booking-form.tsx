@@ -21,7 +21,7 @@ import {
   type DemoLogisticsProvider,
   type DemoUser,
 } from "@/lib/demo-marketplace"
-import { createDemoBooking, getDemoSession, getListingById, getSuggestedLogisticsProvider } from "@/lib/demo-client-store"
+import { getAllLogisticsProviders, getDemoSession } from "@/lib/demo-client-store"
 
 export default function CreateBookingForm() {
   const router = useRouter()
@@ -39,13 +39,33 @@ export default function CreateBookingForm() {
   const [legalUseAccepted, setLegalUseAccepted] = useState(false)
   const [conditionAcknowledged, setConditionAcknowledged] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (listingId) {
-      const nextListing = getListingById(listingId) || null
-      setListing(nextListing)
-      setSuggestedProvider(nextListing ? getSuggestedLogisticsProvider(nextListing) : null)
+    let mounted = true
+
+    async function hydrateListing() {
+      if (!listingId) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const response = await fetch(`/api/listings/${listingId}`, { cache: "no-store" })
+        const data = await response.json()
+        const nextListing = response.ok ? data.listing : null
+        if (!mounted) return
+        setListing(nextListing)
+        const providers = getAllLogisticsProviders().filter((provider) => provider.verified)
+        setSuggestedProvider(nextListing ? providers[0] || null : null)
+      } catch {
+        if (mounted) setListing(null)
+      } finally {
+        if (mounted) setLoading(false)
+      }
     }
+
     async function hydrateSession() {
       const localSession = getDemoSession()
       let nextSession = localSession
@@ -67,7 +87,12 @@ export default function CreateBookingForm() {
       }
     }
 
+    hydrateListing()
     hydrateSession()
+
+    return () => {
+      mounted = false
+    }
   }, [listingId])
 
   const totals = useMemo(() => {
@@ -90,29 +115,53 @@ export default function CreateBookingForm() {
       conditionAcknowledged,
   )
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!listing || !canBook) return
 
+    setError("")
     setProcessing(true)
-    const booking = createDemoBooking({
-      listing,
-      renterName,
-      renterPhone,
-      startDate,
-      endDate,
-      deliveryType,
-      legalUseAccepted,
-      conditionAcknowledged,
-    })
 
-    window.setTimeout(() => {
-      router.push(`/bookings/${booking.id}`)
-    }, 500)
+    try {
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingId: listing.id,
+          renterName,
+          renterPhone,
+          startDate,
+          endDate,
+          deliveryType,
+          legalUseAccepted,
+          conditionAcknowledged,
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok || !data.booking) {
+        setError(data.error || "Could not create booking")
+        setProcessing(false)
+        return
+      }
+
+      router.push(`/bookings/${data.booking.id}`)
+    } catch {
+      setError("Could not create booking")
+      setProcessing(false)
+    }
   }
 
   const handleStartDate = (event: React.ChangeEvent<HTMLInputElement>) => setStartDate(event.currentTarget.value)
   const handleEndDate = (event: React.ChangeEvent<HTMLInputElement>) => setEndDate(event.currentTarget.value)
+
+  if (loading) {
+    return (
+      <Card className="rounded-lg p-8 text-center">
+        <p className="font-semibold">Loading checkout...</p>
+      </Card>
+    )
+  }
 
   if (!listing) {
     return (
@@ -302,7 +351,7 @@ export default function CreateBookingForm() {
             </div>
             <div className="border-t pt-4">
               <div className="flex justify-between text-base">
-                <span className="font-semibold">Simulated payment</span>
+                <span className="font-semibold">Payment hold</span>
                 <span className="font-semibold">{formatNaira(totals?.totalPaid || 0)}</span>
               </div>
             </div>
@@ -316,17 +365,19 @@ export default function CreateBookingForm() {
             </div>
           )}
 
+          {error && <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+
           <div className="mt-5 rounded-md bg-[#071b2f] p-4 text-sm text-white">
             <div className="flex items-center gap-2 font-semibold text-teal-200">
               <ShieldCheck className="size-4" /> Virtual escrow
             </div>
             <p className="mt-2 text-slate-300">
-              This demo marks funds as held until the vendor confirms returned and inspected.
+              Funds are recorded as held until the vendor confirms returned and inspected.
             </p>
           </div>
 
           <Button disabled={!canBook || processing} size="lg" className="mt-5 w-full bg-teal-500 text-white hover:bg-teal-600">
-            {processing ? "Creating booking..." : "Complete simulated booking"}
+            {processing ? "Creating booking..." : "Complete booking"}
           </Button>
         </Card>
       </aside>

@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { categories, formatNaira, seedListings } from "@/lib/demo-marketplace"
+import { listMarketplaceListings } from "@/lib/marketplace-data"
+
+export const dynamic = "force-dynamic"
 
 const trustStats = [
   ["2,400+", "verified rentals"],
@@ -12,8 +15,15 @@ const trustStats = [
   ["98%", "escrow-safe returns"],
 ]
 
-export default function Home() {
-  const featured = seedListings.slice(0, 3)
+export default async function Home() {
+  let featured = seedListings.slice(0, 3)
+
+  try {
+    const listings = await listMarketplaceListings()
+    if (listings.length) featured = listings.slice(0, 3)
+  } catch {
+    featured = seedListings.slice(0, 3)
+  }
 
   return (
     <main className="min-h-screen bg-[#f7fbfb] text-slate-950">
@@ -191,7 +201,7 @@ export default function Home() {
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-14 sm:px-6 md:grid-cols-3 lg:px-8">
           {[
             [CalendarDays, "Select dates", "Choose your rental window and confirm item availability."],
-            [CircleDollarSign, "Pay into escrow", "Rental fee, deposit, and optional logistics are simulated as held."],
+            [CircleDollarSign, "Pay into escrow", "Rental fee, deposit, and optional logistics are recorded as held."],
             [ShieldCheck, "Return and release", "Vendor marks returned and inspected before funds/deposit settle."],
           ].map(([Icon, title, body]) => (
             <div key={title as string} className="rounded-lg border border-slate-200 p-6">

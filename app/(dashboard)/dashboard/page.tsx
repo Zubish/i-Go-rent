@@ -19,20 +19,12 @@ import {
   getRoleLabel,
   legalUseWarning,
   maxListingImageSizeMb,
-  seedListings,
   type DemoBooking,
   type DemoListing,
   type DemoUser,
   type UserRole,
 } from "@/lib/demo-marketplace"
-import {
-  createVendorListing,
-  getAllListings,
-  getBookings,
-  getBookingsForLogisticsProvider,
-  getDemoSession,
-  signOutDemo,
-} from "@/lib/demo-client-store"
+import { getDemoSession, signOutDemo } from "@/lib/demo-client-store"
 
 const dashboardRoles: UserRole[] = ["renter", "vendor", "logistics"]
 
@@ -64,6 +56,7 @@ export default function DashboardPage() {
   const [form, setForm] = useState(defaultListingForm)
   const [createdListingId, setCreatedListingId] = useState("")
   const [listingError, setListingError] = useState("")
+  const [loadingRecords, setLoadingRecords] = useState(true)
 
   useEffect(() => {
     async function hydrateSession() {
@@ -91,22 +84,52 @@ export default function DashboardPage() {
 
       setSession(user)
       setRole(activeRole)
+      await hydrateRecords(activeRole)
+    }
+
+    async function hydrateRecords(activeRole: UserRole) {
+      setLoadingRecords(true)
+      try {
+        const [listingResponse, bookingResponse] = await Promise.all([
+          fetch("/api/listings", { cache: "no-store" }),
+          fetch(`/api/bookings?role=${activeRole}`, { cache: "no-store" }),
+        ])
+        const [listingData, bookingData] = await Promise.all([listingResponse.json(), bookingResponse.json()])
+        setListings(Array.isArray(listingData.listings) ? listingData.listings : [])
+        setBookings(Array.isArray(bookingData.bookings) ? bookingData.bookings : [])
+      } catch {
+        setListings([])
+        setBookings([])
+      } finally {
+        setLoadingRecords(false)
+      }
     }
 
     hydrateSession()
-    setListings(getAllListings())
-    setBookings(getBookings())
   }, [])
 
+  useEffect(() => {
+    async function refreshBookingsForRole() {
+      try {
+        const response = await fetch(`/api/bookings?role=${role}`, { cache: "no-store" })
+        const data = await response.json()
+        setBookings(Array.isArray(data.bookings) ? data.bookings : [])
+      } catch {
+        setBookings([])
+      }
+    }
+
+    refreshBookingsForRole()
+  }, [role])
+
   const vendorListings = useMemo(() => {
-    if (!session) return listings.filter((listing) => !seedListings.includes(listing))
+    if (!session) return []
     return listings.filter((listing) => listing.vendorId === session.id || listing.vendorName === `${session.firstName} ${session.lastName}`)
   }, [listings, session])
 
   const activeBookings = bookings.filter((booking) => booking.escrowStatus === "held")
   const dispatchBookings = bookings.filter((booking) => booking.dispatch)
-  const logisticsBookings = session ? getBookingsForLogisticsProvider(session.id) : []
-  const visibleDispatchBookings = logisticsBookings.length ? logisticsBookings : dispatchBookings
+  const visibleDispatchBookings = dispatchBookings
   const totalEscrow = bookings.reduce((sum, booking) => sum + booking.totalPaid, 0)
   const activeKyc = getKycStatus(session, role)
   const vendorKyc = getKycStatus(session, "vendor")
@@ -116,12 +139,15 @@ export default function DashboardPage() {
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleCreateListing = (event: React.FormEvent) => {
+  const handleCreateListing = async (event: React.FormEvent) => {
     event.preventDefault()
     setListingError("")
 
     try {
-      const listing = createVendorListing({
+      const response = await fetch("/api/listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
         title: form.title,
         category: form.category,
         description: form.description,
@@ -137,9 +163,18 @@ export default function DashboardPage() {
         lateReturnFee: Number(form.lateReturnFee),
         maxRentalDays: Number(form.maxRentalDays),
         imageUrls: form.imageUrls,
+        }),
       })
+      const data = await response.json()
+
+      if (!response.ok || !data.listing) {
+        setListingError(data.error || "Could not create listing")
+        return
+      }
+
+      const listing = data.listing as DemoListing
       setCreatedListingId(listing.id)
-      setListings(getAllListings())
+      setListings((current) => [listing, ...current.filter((item) => item.id !== listing.id)])
     } catch (error) {
       setListingError(error instanceof Error ? error.message : "Could not create listing")
     }
@@ -163,7 +198,7 @@ export default function DashboardPage() {
               <Link href="/browse">Browse</Link>
             </Button>
             <Button onClick={handleSignOut} variant="outline" className="border-white/20 bg-transparent text-white hover:bg-white/10">
-              Reset demo
+              Sign out
             </Button>
           </div>
         </div>
@@ -174,10 +209,10 @@ export default function DashboardPage() {
           <div>
             <Badge className="bg-teal-50 text-teal-700">{getRoleLabel(role)} workspace</Badge>
             <h1 className="mt-3 text-4xl font-semibold tracking-normal text-slate-950">
-              {session ? `Welcome, ${session.firstName}` : "Demo dashboard"}
+              {session ? `Welcome, ${session.firstName}` : "Dashboard"}
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Manage listings, simulated bookings, dispatch assignments, and escrow states for the Lagos rental flow.
+              Manage listings, bookings, dispatch assignments, and escrow states for the Lagos rental flow.
             </p>
           </div>
           <div className="grid grid-cols-3 rounded-lg bg-white p-1 shadow-sm">
@@ -201,7 +236,7 @@ export default function DashboardPage() {
           <Metric icon={ShieldCheck} label="KYC status" value={activeKyc.label} />
           <Metric
             icon={role === "logistics" ? Truck : CircleDollarSign}
-            label={role === "logistics" ? "Dispatch jobs" : "Total simulated value"}
+            label={role === "logistics" ? "Dispatch jobs" : "Total booking value"}
             value={role === "logistics" ? dispatchBookings.length.toString() : formatNaira(totalEscrow)}
           />
         </div>
@@ -352,6 +387,7 @@ export default function DashboardPage() {
                 {session?.verified && <Badge className="bg-teal-50 text-teal-700"><BadgeCheck /> Verified</Badge>}
               </div>
               <div className="mt-5 space-y-4">
+                {loadingRecords && <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600">Loading listings...</p>}
                 {(vendorListings.length ? vendorListings : listings.slice(0, 2)).map((listing) => (
                   <ListingRow key={listing.id} listing={listing} />
                 ))}
@@ -393,7 +429,11 @@ export default function DashboardPage() {
             <Card className="rounded-lg border-slate-200 bg-white p-6">
               <h2 className="text-xl font-semibold">Assigned i.Go-Logistics dispatches</h2>
               <div className="mt-5 space-y-4">
-                {visibleDispatchBookings.length === 0 ? (
+                {loadingRecords ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+                    <p className="font-semibold">Loading dispatches...</p>
+                  </div>
+                ) : visibleDispatchBookings.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
                     <p className="font-semibold">No dispatches assigned yet</p>
                     <p className="mt-2 text-sm text-slate-600">When a renter chooses i.Go-Logistics, assigned pickup and delivery jobs will appear here.</p>
@@ -431,7 +471,11 @@ export default function DashboardPage() {
                 blockedCopy="Complete phone and NIN verification before booking rentals."
               />
               <div className="mt-5 space-y-4">
-                {bookings.length === 0 ? (
+                {loadingRecords ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
+                    <p className="font-semibold">Loading bookings...</p>
+                  </div>
+                ) : bookings.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
                     <p className="font-semibold">No bookings yet</p>
                     <p className="mt-2 text-sm text-slate-600">Search for Professional Sound System to complete the success path.</p>
