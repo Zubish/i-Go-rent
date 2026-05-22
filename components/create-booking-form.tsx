@@ -2,175 +2,190 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { Card } from "@/components/ui/card"
+import { useEffect, useMemo, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { CalendarDays, ShieldCheck, Truck } from "lucide-react"
+
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { getListing } from "@/app/actions/listing-actions"
-import { createBooking, initiatePayment } from "@/app/actions/booking-actions"
+import {
+  calculateBookingTotal,
+  formatNaira,
+  logisticsFee,
+  type DeliveryType,
+  type DemoListing,
+} from "@/lib/demo-marketplace"
+import { createDemoBooking, getDemoSession, getListingById } from "@/lib/demo-client-store"
 
 export default function CreateBookingForm() {
-  const searchParams = useSearchParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const listingId = searchParams.get("listing")
 
-  const [listing, setListing] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [bookingData, setBookingData] = useState({
-    startDate: "",
-    endDate: "",
-  })
+  const [listing, setListing] = useState<DemoListing | null>(null)
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>("self-pickup")
+  const [renterName, setRenterName] = useState("")
   const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
-    const fetchListing = async () => {
-      if (listingId) {
-        const result = await getListing(listingId)
-        if (result.success) {
-          setListing(result.listing)
-        }
-      }
-      setLoading(false)
-    }
-
-    fetchListing()
+    if (listingId) setListing(getListingById(listingId) || null)
+    const session = getDemoSession()
+    if (session) setRenterName(`${session.firstName} ${session.lastName}`)
   }, [listingId])
 
-  const calculateDays = () => {
-    if (!bookingData.startDate || !bookingData.endDate) return 0
-    const start = new Date(bookingData.startDate)
-    const end = new Date(bookingData.endDate)
-    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  }
+  const totals = useMemo(() => {
+    if (!listing) return null
+    return calculateBookingTotal(listing, startDate, endDate, deliveryType)
+  }, [deliveryType, endDate, listing, startDate])
 
-  const days = calculateDays()
-  const totalPrice = listing ? days * listing.price_per_day : 0
+  const canBook = Boolean(listing && renterName && totals && totals.days > 0)
 
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setBookingData((prev) => ({ ...prev, [name]: value }))
-  }
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!listing || !canBook) return
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
     setProcessing(true)
+    const booking = createDemoBooking({
+      listing,
+      renterName,
+      startDate,
+      endDate,
+      deliveryType,
+    })
 
-    try {
-      const bookingResult = await createBooking({
-        renterId: "current-user-id",
-        listingId: listingId || "",
-        hostId: listing.host_id,
-        startDate: bookingData.startDate,
-        endDate: bookingData.endDate,
-        numberOfDays: days,
-        totalPrice,
-      })
-
-      if (!bookingResult.success) {
-        alert("Failed to create booking")
-        setProcessing(false)
-        return
-      }
-
-      const paymentResult = await initiatePayment(
-        bookingResult.booking.id,
-        "current-user-id",
-        "user@email.com",
-        "User Name",
-        "08000000000",
-        totalPrice,
-      )
-
-      if (paymentResult.success) {
-        window.location.href = paymentResult.paymentLink
-      } else {
-        alert("Payment initialization failed")
-      }
-    } catch (error) {
-      alert("An error occurred")
-    } finally {
-      setProcessing(false)
-    }
+    window.setTimeout(() => {
+      router.push(`/bookings/${booking.id}`)
+    }, 500)
   }
 
-  if (loading) {
-    return <div className="text-center py-12">Loading...</div>
-  }
+  const handleStartDate = (event: React.ChangeEvent<HTMLInputElement>) => setStartDate(event.currentTarget.value)
+  const handleEndDate = (event: React.ChangeEvent<HTMLInputElement>) => setEndDate(event.currentTarget.value)
 
   if (!listing) {
-    return <div className="text-center py-12">Listing not found</div>
+    return (
+      <Card className="rounded-lg p-8 text-center">
+        <p className="font-semibold">Listing not found</p>
+        <p className="mt-2 text-sm text-slate-600">Go back to browse and choose an available rental.</p>
+      </Card>
+    )
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-2">
-        <Card className="p-6">
-          <h2 className="text-2xl font-bold mb-6">{listing.title}</h2>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="space-y-5">
+        <Card className="rounded-lg border-slate-200 bg-white p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Check-in Date</label>
-              <Input type="date" name="startDate" value={bookingData.startDate} onChange={handleDateChange} required />
+              <Badge className="bg-teal-50 text-teal-700">{listing.category}</Badge>
+              <h2 className="mt-3 text-2xl font-semibold tracking-normal">{listing.title}</h2>
+              <p className="mt-2 text-sm text-slate-600">{listing.vendorName} · {listing.location}</p>
             </div>
+            <img src={listing.images[0]} alt="" className="h-24 w-32 rounded-md object-cover" />
+          </div>
+        </Card>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Check-out Date</label>
-              <Input type="date" name="endDate" value={bookingData.endDate} onChange={handleDateChange} required />
-            </div>
+        <Card className="rounded-lg border-slate-200 bg-white p-6">
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            <CalendarDays className="size-5 text-teal-600" /> Rental dates
+          </h3>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label>
+              <span className="mb-2 block text-sm font-medium text-slate-700">Start date</span>
+              <Input type="date" value={startDate} onChange={handleStartDate} onInput={handleStartDate} required />
+            </label>
+            <label>
+              <span className="mb-2 block text-sm font-medium text-slate-700">End date</span>
+              <Input type="date" value={endDate} onChange={handleEndDate} onInput={handleEndDate} required />
+            </label>
+          </div>
+        </Card>
 
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">Rental Duration & Cost</p>
-              <p className="text-2xl font-bold">
-                {days} day{days !== 1 ? "s" : ""} × ₦{listing.price_per_day.toLocaleString()}
-              </p>
-            </div>
-
-            <div className="border-t pt-6">
-              <h3 className="font-bold mb-3">Payment Method</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Your payment is held securely in escrow until the rental is completed.
-              </p>
-
-              <Button
-                type="submit"
-                disabled={processing || days <= 0}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg"
+        <Card className="rounded-lg border-slate-200 bg-white p-6">
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            <Truck className="size-5 text-teal-600" /> Delivery type
+          </h3>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {[
+              ["self-pickup", "Self-Pickup", "Meet vendor at the listed pickup location.", 0],
+              ["igo-logistics", "i.Go-Logistics", "Flat-fee dispatch coordination inside Lagos.", logisticsFee],
+            ].map(([value, title, body, fee]) => (
+              <label
+                key={value as string}
+                className={`cursor-pointer rounded-lg border p-4 ${
+                  deliveryType === value ? "border-teal-500 bg-teal-50" : "border-slate-200 bg-white"
+                }`}
               >
-                {processing ? "Processing..." : `Pay ₦${totalPrice.toLocaleString()} with Flutterwave`}
-              </Button>
-            </div>
-          </form>
+                <input
+                  type="radio"
+                  name="deliveryType"
+                  value={value as string}
+                  checked={deliveryType === value}
+                  onChange={() => setDeliveryType(value as DeliveryType)}
+                  className="sr-only"
+                />
+                <span className="font-semibold">{title as string}</span>
+                <span className="mt-1 block text-sm leading-6 text-slate-600">{body as string}</span>
+                <span className="mt-3 block text-sm font-semibold">{formatNaira(fee as number)}</span>
+              </label>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="rounded-lg border-slate-200 bg-white p-6">
+          <h3 className="text-lg font-semibold">Renter details</h3>
+          <label className="mt-4 block">
+            <span className="mb-2 block text-sm font-medium text-slate-700">Name for booking</span>
+            <Input value={renterName} onChange={(event) => setRenterName(event.target.value)} placeholder="Your full name" required />
+          </label>
         </Card>
       </div>
 
-      <div>
-        <Card className="p-6">
-          <h3 className="font-bold mb-4">Booking Summary</h3>
-
-          <div className="space-y-3 text-sm">
+      <aside className="lg:sticky lg:top-24 lg:self-start">
+        <Card className="rounded-lg border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/70">
+          <h3 className="text-lg font-semibold">Checkout summary</h3>
+          <div className="mt-5 space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Days</span>
-              <span className="font-semibold">{days}</span>
+              <span className="text-slate-600">Rental duration</span>
+              <span className="font-semibold">{totals?.days || 0} days</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Price per day</span>
-              <span className="font-semibold">₦{listing.price_per_day.toLocaleString()}</span>
+              <span className="text-slate-600">Rental fee</span>
+              <span className="font-semibold">{formatNaira(totals?.rentalFee || 0)}</span>
             </div>
-            <div className="border-t pt-3 flex justify-between">
-              <span className="font-bold">Total</span>
-              <span className="font-bold text-lg">₦{totalPrice.toLocaleString()}</span>
+            <div className="flex justify-between">
+              <span className="text-slate-600">Security deposit</span>
+              <span className="font-semibold">{formatNaira(totals?.securityDeposit || 0)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-600">Delivery</span>
+              <span className="font-semibold">{formatNaira(totals?.deliveryFee || 0)}</span>
+            </div>
+            <div className="border-t pt-4">
+              <div className="flex justify-between text-base">
+                <span className="font-semibold">Simulated payment</span>
+                <span className="font-semibold">{formatNaira(totals?.totalPaid || 0)}</span>
+              </div>
             </div>
           </div>
 
-          <div className="mt-6 p-4 bg-green-50 rounded-lg text-sm">
-            <p className="font-semibold text-green-900 mb-2">Secure Escrow</p>
-            <p className="text-green-700">
-              Your payment is held safely until you confirm the item is in good condition.
+          <div className="mt-5 rounded-md bg-[#071b2f] p-4 text-sm text-white">
+            <div className="flex items-center gap-2 font-semibold text-teal-200">
+              <ShieldCheck className="size-4" /> Virtual escrow
+            </div>
+            <p className="mt-2 text-slate-300">
+              This demo marks funds as held until the vendor confirms returned and inspected.
             </p>
           </div>
+
+          <Button disabled={!canBook || processing} size="lg" className="mt-5 w-full bg-teal-500 text-white hover:bg-teal-600">
+            {processing ? "Creating booking..." : "Complete simulated booking"}
+          </Button>
         </Card>
-      </div>
-    </div>
+      </aside>
+    </form>
   )
 }

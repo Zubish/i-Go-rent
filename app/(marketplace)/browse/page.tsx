@@ -1,188 +1,174 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { searchListings, getCategories } from "@/app/actions/listing-actions"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { BadgeCheck, CalendarDays, MapPin, Search, ShieldCheck, SlidersHorizontal } from "lucide-react"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { categories, formatNaira, type DemoListing } from "@/lib/demo-marketplace"
+import { getAllListings } from "@/lib/demo-client-store"
 
 export default function BrowseListingsPage() {
-  const [listings, setListings] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState({
-    query: "",
-    city: "",
-    state: "",
-    minPrice: "",
-    maxPrice: "",
-    category: "",
-    page: 1,
-  })
-  const [pagination, setPagination] = useState<any>(null)
+  const [listings, setListings] = useState<DemoListing[]>([])
+  const [query, setQuery] = useState("")
+  const [category, setCategory] = useState("All")
+  const [area, setArea] = useState("")
+  const [startDate, setStartDate] = useState("")
+  const [endDate, setEndDate] = useState("")
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true)
+    setListings(getAllListings())
+    const params = new URLSearchParams(window.location.search)
+    const initialCategory = params.get("category")
+    if (initialCategory) setCategory(initialCategory)
+  }, [])
 
-      const categoriesResult = await getCategories()
-      if (categoriesResult.success) {
-        setCategories(categoriesResult.categories)
-      }
-
-      const searchParams: any = {
-        page: filters.page,
-      }
-
-      if (filters.query) searchParams.query = filters.query
-      if (filters.city) searchParams.city = filters.city
-      if (filters.state) searchParams.state = filters.state
-      if (filters.minPrice) searchParams.minPrice = Number(filters.minPrice)
-      if (filters.maxPrice) searchParams.maxPrice = Number(filters.maxPrice)
-      if (filters.category) searchParams.category = filters.category
-
-      const listingsResult = await searchListings(searchParams)
-      if (listingsResult.success) {
-        setListings(listingsResult.listings)
-        setPagination(listingsResult.pagination)
-      }
-
-      setLoading(false)
-    }
-
-    fetchData()
-  }, [filters])
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFilters((prev) => ({ ...prev, [name]: value, page: 1 }))
-  }
+  const filteredListings = useMemo(() => {
+    return listings.filter((listing) => {
+      const searchText = `${listing.title} ${listing.description} ${listing.vendorName} ${listing.location}`.toLowerCase()
+      const matchesQuery = !query || searchText.includes(query.toLowerCase())
+      const matchesCategory = category === "All" || listing.category === category
+      const matchesArea = !area || listing.location.toLowerCase().includes(area.toLowerCase()) || listing.vendorArea.toLowerCase().includes(area.toLowerCase())
+      return matchesQuery && matchesCategory && matchesArea
+    })
+  }, [area, category, listings, query])
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-4xl font-bold mb-8">Browse Rentals</h1>
-
-        {/* Filters */}
-        <Card className="p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Search</label>
-              <Input name="query" placeholder="Search items..." value={filters.query} onChange={handleFilterChange} />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">City</label>
-              <Input name="city" placeholder="Lagos, Abuja..." value={filters.city} onChange={handleFilterChange} />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Category</label>
-              <select
-                name="category"
-                value={filters.category}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="">All Categories</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Min Price (₦)</label>
-              <Input
-                name="minPrice"
-                type="number"
-                placeholder="0"
-                value={filters.minPrice}
-                onChange={handleFilterChange}
-              />
-            </div>
+    <main className="min-h-screen bg-[#f7fbfb]">
+      <header className="border-b bg-[#071b2f] text-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/" className="text-lg font-semibold">
+            i.Go-rent
+          </Link>
+          <div className="flex gap-2">
+            <Button asChild variant="ghost" className="text-white hover:bg-white/10 hover:text-white">
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
+            <Button asChild className="bg-teal-400 text-[#071b2f] hover:bg-teal-300">
+              <Link href="/signup?role=vendor">List item</Link>
+            </Button>
           </div>
-        </Card>
+        </div>
+      </header>
 
-        {/* Listings Grid */}
-        {loading ? (
-          <div className="text-center py-12">Loading...</div>
-        ) : listings.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600">No listings found. Try adjusting your filters.</p>
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
+          <div>
+            <Badge className="mb-4 bg-teal-50 text-teal-700">Lagos marketplace</Badge>
+            <h1 className="text-4xl font-semibold tracking-normal text-slate-950">Find rentals with deposit protection.</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+              Search event equipment, transport, and creator gear. Every checkout shows rental fee, security deposit,
+              delivery option, and virtual escrow status.
+            </p>
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {listings.map((listing) => (
-                <Card key={listing.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="aspect-square bg-gray-200 relative">
-                    {listing.image_urls && listing.image_urls.length > 0 ? (
-                      <img
-                        src={listing.image_urls[0] || "/placeholder.svg"}
-                        alt={listing.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">No Image</div>
-                    )}
-                  </div>
 
-                  <div className="p-4">
-                    <h3 className="font-bold text-lg mb-2 line-clamp-2">{listing.title}</h3>
-
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-2xl font-bold text-blue-600">₦{listing.price_per_day.toLocaleString()}</p>
-                        <p className="text-sm text-gray-600">per day</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">{listing.rating.toFixed(1)}⭐</p>
-                        <p className="text-sm text-gray-600">({listing.total_reviews})</p>
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-gray-600 mb-2">
-                      📍 {listing.city}, {listing.state}
-                    </p>
-
-                    <p className="text-sm text-gray-600 mb-4">
-                      Host: {listing.first_name} {listing.last_name}
-                    </p>
-
-                    <Link href={`/listings/${listing.id}`}>
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700">View Details</Button>
-                    </Link>
-                  </div>
-                </Card>
-              ))}
+          <Card className="rounded-lg border-slate-200 bg-white p-4 shadow-sm">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="sm:col-span-2 lg:col-span-4">
+                <span className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <Search className="size-4" /> Search item or vendor
+                </span>
+                <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Professional Sound System" />
+              </label>
+              <label>
+                <span className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <SlidersHorizontal className="size-4" /> Category
+                </span>
+                <select
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option>All</option>
+                  {categories.map((item) => (
+                    <option key={item.name}>{item.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <MapPin className="size-4" /> Area
+                </span>
+                <Input value={area} onChange={(event) => setArea(event.target.value)} placeholder="Lekki" />
+              </label>
+              <label>
+                <span className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <CalendarDays className="size-4" /> From
+                </span>
+                <Input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+              </label>
+              <label>
+                <span className="mb-2 text-xs font-medium text-slate-600">To</span>
+                <Input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+              </label>
             </div>
+          </Card>
+        </div>
 
-            {/* Pagination */}
-            {pagination && pagination.pages > 1 && (
-              <div className="flex justify-center gap-2 mb-8">
-                {Array.from({ length: pagination.pages }).map((_, idx) => {
-                  const pageNum = idx + 1
-                  return (
-                    <Button
-                      key={pageNum}
-                      onClick={() => setFilters((prev) => ({ ...prev, page: pageNum }))}
-                      variant={pagination.page === pageNum ? "default" : "outline"}
-                    >
-                      {pageNum}
-                    </Button>
-                  )
-                })}
+        <div className="mt-8 flex items-center justify-between">
+          <p className="text-sm text-slate-600">
+            Showing <span className="font-semibold text-slate-950">{filteredListings.length}</span> rentals
+          </p>
+          {startDate && endDate && <Badge variant="outline">Dates selected</Badge>}
+        </div>
+
+        <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {filteredListings.map((listing) => (
+            <Card key={listing.id} className="overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
+              <Link href={`/listings/${listing.id}`}>
+                <img src={listing.images[0]} alt={listing.title} className="h-52 w-full object-cover" />
+              </Link>
+              <div className="p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">{listing.category}</Badge>
+                  {listing.vendorVerified && (
+                    <Badge className="bg-teal-50 text-teal-700">
+                      <BadgeCheck /> Verified vendor
+                    </Badge>
+                  )}
+                </div>
+                <Link href={`/listings/${listing.id}`}>
+                  <h2 className="mt-4 text-xl font-semibold tracking-normal hover:text-teal-700">{listing.title}</h2>
+                </Link>
+                <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{listing.description}</p>
+                <div className="mt-4 flex items-center gap-2 text-sm text-slate-600">
+                  <MapPin className="size-4" />
+                  {listing.location}
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3 rounded-md bg-slate-50 p-3">
+                  <div>
+                    <p className="text-xs text-slate-500">Daily rental</p>
+                    <p className="font-semibold">{formatNaira(listing.pricePerDay)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Deposit</p>
+                    <p className="font-semibold">{formatNaira(listing.securityDeposit)}</p>
+                  </div>
+                </div>
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-600">
+                    <ShieldCheck className="size-4 text-teal-600" />
+                    Escrow ready
+                  </div>
+                  <Button asChild className="bg-[#071b2f] text-white hover:bg-[#0b2b49]">
+                    <Link href={`/listings/${listing.id}`}>View</Link>
+                  </Button>
+                </div>
               </div>
-            )}
-          </>
+            </Card>
+          ))}
+        </div>
+
+        {filteredListings.length === 0 && (
+          <Card className="mt-8 rounded-lg border-slate-200 bg-white p-10 text-center">
+            <p className="font-semibold">No matching rentals yet</p>
+            <p className="mt-2 text-sm text-slate-600">Try a broader Lagos area or another category.</p>
+          </Card>
         )}
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

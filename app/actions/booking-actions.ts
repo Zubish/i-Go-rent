@@ -10,6 +10,10 @@ export interface BookingData {
   startDate: string
   endDate: string
   numberOfDays: number
+  rentalFee: number
+  securityDeposit: number
+  deliveryType: "self_pickup" | "igo_logistics"
+  deliveryFee: number
   totalPrice: number
 }
 
@@ -17,11 +21,26 @@ export interface BookingData {
 export async function createBooking(data: BookingData) {
   try {
     const result = await sql(
-      `INSERT INTO bookings (renter_id, listing_id, host_id, start_date, end_date, number_of_days, price_per_day, total_price, status)
-       SELECT $1, $2, $3, $4, $5, $6, price_per_day, $7, 'pending'
+      `INSERT INTO bookings (
+        renter_id, listing_id, host_id, start_date, end_date, number_of_days,
+        price_per_day, rental_fee, security_deposit_amount, delivery_type, delivery_fee, total_price, total_paid, status
+      )
+       SELECT $1, $2, $3, $4, $5, $6, price_per_day, $7, $8, $9, $10, $11, $11, 'pending'
        FROM listings WHERE id = $2
        RETURNING *`,
-      [data.renterId, data.listingId, data.hostId, data.startDate, data.endDate, data.numberOfDays, data.totalPrice],
+      [
+        data.renterId,
+        data.listingId,
+        data.hostId,
+        data.startDate,
+        data.endDate,
+        data.numberOfDays,
+        data.rentalFee,
+        data.securityDeposit,
+        data.deliveryType,
+        data.deliveryFee,
+        data.totalPrice,
+      ],
     )
 
     if (result.length === 0) {
@@ -42,6 +61,23 @@ export async function createBooking(data: BookingData) {
   } catch (error) {
     console.error("Error creating booking:", error)
     return { success: false, error: "Failed to create booking" }
+  }
+}
+
+export async function markReturnedAndInspected(bookingId: string) {
+  try {
+    await sql(`UPDATE bookings SET status = 'completed', updated_at = NOW() WHERE id = $1`, [bookingId])
+    await sql(
+      `UPDATE escrow_transactions
+       SET status = 'deposit_refunded', release_reason = 'Returned and inspected', released_at = NOW(), updated_at = NOW()
+       WHERE booking_id = $1`,
+      [bookingId],
+    )
+
+    return { success: true, message: "Return inspection completed and escrow updated" }
+  } catch (error) {
+    console.error("Error completing return inspection:", error)
+    return { success: false, error: "Failed to update escrow" }
   }
 }
 

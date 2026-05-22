@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS listings (
   title VARCHAR(200) NOT NULL,
   description TEXT NOT NULL,
   price_per_day DECIMAL(12, 2) NOT NULL,
+  security_deposit_amount DECIMAL(12, 2) DEFAULT 0,
   currency VARCHAR(3) DEFAULT 'NGN',
   
   location VARCHAR(255) NOT NULL,
@@ -129,11 +130,7 @@ CREATE TABLE IF NOT EXISTS listings (
   total_reviews INTEGER DEFAULT 0,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  INDEX (host_id),
-  INDEX (category_id),
-  INDEX (city)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Bookings Table
@@ -149,7 +146,12 @@ CREATE TABLE IF NOT EXISTS bookings (
   
   -- Pricing
   price_per_day DECIMAL(12, 2) NOT NULL,
+  rental_fee DECIMAL(12, 2) DEFAULT 0,
+  security_deposit_amount DECIMAL(12, 2) DEFAULT 0,
+  delivery_type VARCHAR(30) CHECK (delivery_type IN ('self_pickup', 'igo_logistics')) DEFAULT 'self_pickup',
+  delivery_fee DECIMAL(12, 2) DEFAULT 0,
   total_price DECIMAL(12, 2) NOT NULL,
+  total_paid DECIMAL(12, 2) DEFAULT 0,
   currency VARCHAR(3) DEFAULT 'NGN',
   
   -- Status
@@ -161,12 +163,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   cancellation_refund_percentage DECIMAL(5, 2),
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  INDEX (renter_id),
-  INDEX (host_id),
-  INDEX (listing_id),
-  INDEX (status)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Escrow Transactions Table (Core Trust Mechanism)
@@ -181,7 +178,7 @@ CREATE TABLE IF NOT EXISTS escrow_transactions (
   currency VARCHAR(3) DEFAULT 'NGN',
   
   -- Escrow States
-  status VARCHAR(50) CHECK (status IN ('held', 'released_to_host', 'refunded_to_renter', 'partial_release', 'disputed')) DEFAULT 'held',
+  status VARCHAR(50) CHECK (status IN ('held', 'returned_inspection_pending', 'released_to_host', 'deposit_refunded', 'refunded_to_renter', 'partial_release', 'disputed')) DEFAULT 'held',
   
   -- Release Details
   release_reason VARCHAR(255),
@@ -196,12 +193,7 @@ CREATE TABLE IF NOT EXISTS escrow_transactions (
   dispute_custom_renter_amount DECIMAL(12, 2),
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  INDEX (booking_id),
-  INDEX (status),
-  INDEX (renter_id),
-  INDEX (host_id)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Payments Table
@@ -225,11 +217,7 @@ CREATE TABLE IF NOT EXISTS payments (
   failure_reason TEXT,
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  INDEX (booking_id),
-  INDEX (user_id),
-  INDEX (status)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Reviews & Ratings Table
@@ -248,11 +236,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   review_type VARCHAR(20) CHECK (review_type IN ('renter', 'host')),
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  INDEX (reviewer_id),
-  INDEX (reviewed_user_id),
-  INDEX (listing_id)
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Disputes Table
@@ -275,10 +259,7 @@ CREATE TABLE IF NOT EXISTS disputes (
   
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  resolved_at TIMESTAMP,
-  
-  INDEX (booking_id),
-  INDEX (status)
+  resolved_at TIMESTAMP
 );
 
 -- Notifications Table
@@ -296,16 +277,39 @@ CREATE TABLE IF NOT EXISTS notifications (
   is_read BOOLEAN DEFAULT FALSE,
   read_at TIMESTAMP,
   
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  
-  INDEX (user_id),
-  INDEX (is_read)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create Indexes for Performance
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_user_type ON users(user_type);
 CREATE INDEX idx_listings_host_id ON listings(host_id);
+CREATE INDEX idx_listings_category_id ON listings(category_id);
+CREATE INDEX idx_listings_city ON listings(city);
 CREATE INDEX idx_listings_available ON listings(available);
+CREATE INDEX idx_bookings_renter_id ON bookings(renter_id);
+CREATE INDEX idx_bookings_host_id ON bookings(host_id);
+CREATE INDEX idx_bookings_listing_id ON bookings(listing_id);
 CREATE INDEX idx_bookings_status ON bookings(status);
 CREATE INDEX idx_escrow_status ON escrow_transactions(status);
+CREATE INDEX idx_escrow_booking_id ON escrow_transactions(booking_id);
+CREATE INDEX idx_escrow_renter_id ON escrow_transactions(renter_id);
+CREATE INDEX idx_escrow_host_id ON escrow_transactions(host_id);
+CREATE INDEX idx_payments_booking_id ON payments(booking_id);
+CREATE INDEX idx_payments_user_id ON payments(user_id);
+CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_reviews_reviewer_id ON reviews(reviewer_id);
+CREATE INDEX idx_reviews_reviewed_user_id ON reviews(reviewed_user_id);
+CREATE INDEX idx_reviews_listing_id ON reviews(listing_id);
+CREATE INDEX idx_disputes_booking_id ON disputes(booking_id);
+CREATE INDEX idx_disputes_status ON disputes(status);
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_is_read ON notifications(is_read);
+
+-- Backfill-friendly alterations for existing projects.
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS security_deposit_amount DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS rental_fee DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS security_deposit_amount DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS delivery_type VARCHAR(30) DEFAULT 'self_pickup';
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS delivery_fee DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS total_paid DECIMAL(12, 2) DEFAULT 0;

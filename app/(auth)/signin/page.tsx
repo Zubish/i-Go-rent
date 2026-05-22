@@ -3,87 +3,75 @@
 import type React from "react"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
+
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { signIn } from "@/app/actions/auth-actions"
+import { createDemoSession } from "@/lib/demo-client-store"
+import type { UserRole } from "@/lib/demo-marketplace"
 
 export default function SignInPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-  })
+  const [role, setRole] = useState<UserRole>("renter")
+  const [email, setEmail] = useState("demo@igorent.ng")
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setLoading(true)
-
-    try {
-      const result = await signIn(formData.email, formData.password)
-
-      if (result.success) {
-        router.push("/dashboard")
-      } else {
-        setError(result.error || "Failed to sign in")
-      }
-    } catch (err) {
-      setError("An error occurred. Please try again.")
-    } finally {
-      setLoading(false)
-    }
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
+    createDemoSession({
+      role,
+      firstName: role === "vendor" ? "Musa" : "Zainab",
+      lastName: role === "vendor" ? "Rentals" : "Customer",
+      email,
+      phone: "08000000000",
+      area: role === "vendor" ? "Lekki Phase 1" : "Yaba",
+      nin: role === "vendor" ? "12345678901" : "",
+      bvn: role === "vendor" ? "10987654321" : "",
+    })
+    router.push(role === "vendor" ? "/dashboard?role=vendor" : "/browse")
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <div className="p-8">
-          <h1 className="text-3xl font-bold text-center mb-2">i.Go-rent</h1>
-          <p className="text-center text-gray-600 mb-8">Sign in to your account</p>
+    <main className="flex min-h-screen items-center justify-center bg-[#071b2f] p-4">
+      <Card className="w-full max-w-md rounded-lg border-white/10 bg-white p-8 shadow-2xl shadow-black/30">
+        <Link href="/" className="font-semibold text-[#071b2f]">
+          i.Go-rent
+        </Link>
+        <h1 className="mt-6 text-3xl font-semibold tracking-normal">Sign in to demo mode</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Use this while payment and identity APIs are being connected. It creates a local profile for testing flows.
+        </p>
 
-          {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">{error}</div>}
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+          <div className="grid grid-cols-2 rounded-lg bg-slate-100 p-1">
+            {[
+              ["renter", "Renter"],
+              ["vendor", "Vendor"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setRole(value as UserRole)}
+                className={`rounded-md px-4 py-2 text-sm font-medium ${
+                  role === value ? "bg-[#071b2f] text-white" : "text-slate-600"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <Button className="w-full bg-teal-500 text-white hover:bg-teal-600">Continue</Button>
+        </form>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              name="email"
-              type="email"
-              placeholder="Email Address"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-
-            <Input
-              name="password"
-              type="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-
-            <Button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700">
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-
-          <p className="text-center text-gray-600 mt-6">
-            Don't have an account?{" "}
-            <a href="/signup" className="text-blue-600 hover:underline">
-              Sign Up
-            </a>
-          </p>
-        </div>
+        <p className="mt-6 text-center text-sm text-slate-600">
+          Need a profile?{" "}
+          <Link href="/signup" className="font-medium text-teal-700">
+            Create one
+          </Link>
+        </p>
       </Card>
-    </div>
+    </main>
   )
 }

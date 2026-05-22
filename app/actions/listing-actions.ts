@@ -9,6 +9,7 @@ export interface Listing {
   title: string
   description: string
   pricePerDay: number
+  securityDeposit: number
   location: string
   city: string
   state: string
@@ -30,6 +31,7 @@ export async function createListing(
     title: string
     description: string
     pricePerDay: number
+    securityDeposit: number
     location: string
     city: string
     state: string
@@ -40,15 +42,16 @@ export async function createListing(
 ) {
   try {
     const result = await sql(
-      `INSERT INTO listings (host_id, category_id, title, description, price_per_day, location, city, state, condition, total_quantity, available_quantity, image_urls, available)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-       RETURNING id, host_id, category_id, title, description, price_per_day, location, city, state, condition, total_quantity, available_quantity, image_urls, rating, total_reviews, created_at`,
+      `INSERT INTO listings (host_id, category_id, title, description, price_per_day, security_deposit_amount, location, city, state, condition, total_quantity, available_quantity, image_urls, available)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       RETURNING id, host_id, category_id, title, description, price_per_day, security_deposit_amount, location, city, state, condition, total_quantity, available_quantity, image_urls, rating, total_reviews, created_at`,
       [
         hostId,
         data.categoryId,
         data.title,
         data.description,
         data.pricePerDay,
+        data.securityDeposit,
         data.location,
         data.city,
         data.state,
@@ -252,6 +255,11 @@ export async function updateListing(listingId: string, hostId: string, data: Par
     if (data.pricePerDay) {
       updates.push(`price_per_day = $${paramCount}`)
       values.push(data.pricePerDay)
+      paramCount++
+    }
+    if (data.securityDeposit) {
+      updates.push(`security_deposit_amount = $${paramCount}`)
+      values.push(data.securityDeposit)
       paramCount++
     }
     if (data.available !== undefined) {

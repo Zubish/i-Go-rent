@@ -1,122 +1,150 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { getListing } from "@/app/actions/listing-actions"
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useParams } from "next/navigation"
+import { ArrowLeft, BadgeCheck, CalendarDays, MapPin, ShieldCheck, Star, Truck } from "lucide-react"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { formatNaira, type DemoListing } from "@/lib/demo-marketplace"
+import { getListingById } from "@/lib/demo-client-store"
 
 export default function ListingDetailPage() {
   const params = useParams()
-  const [listing, setListing] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [listing, setListing] = useState<DemoListing | null>(null)
 
   useEffect(() => {
-    const fetchListing = async () => {
-      const result = await getListing(params.id as string)
-      if (result.success) {
-        setListing(result.listing)
-      }
-      setLoading(false)
-    }
-
-    fetchListing()
+    setListing(getListingById(params.id as string) || null)
   }, [params.id])
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
-  }
-
   if (!listing) {
-    return <div className="min-h-screen flex items-center justify-center">Listing not found</div>
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7fbfb] p-6">
+        <Card className="max-w-md rounded-lg p-8 text-center">
+          <p className="text-lg font-semibold">Listing not found</p>
+          <Button asChild className="mt-5 bg-[#071b2f] text-white hover:bg-[#0b2b49]">
+            <Link href="/browse">Back to marketplace</Link>
+          </Button>
+        </Card>
+      </main>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <Link href="/browse" className="text-blue-600 hover:underline mb-6">
-          ← Back to Browse
-        </Link>
+    <main className="min-h-screen bg-[#f7fbfb]">
+      <header className="border-b bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/browse" className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <ArrowLeft className="size-4" /> Marketplace
+          </Link>
+          <Button asChild className="bg-teal-500 text-white hover:bg-teal-600">
+            <Link href={`/bookings/create?listing=${listing.id}`}>Book now</Link>
+          </Button>
+        </div>
+      </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Images */}
-          <div className="lg:col-span-2">
-            {listing.image_urls && listing.image_urls.length > 0 ? (
-              <div className="aspect-square bg-gray-200 rounded-lg overflow-hidden">
-                <img
-                  src={listing.image_urls[0] || "/placeholder.svg"}
-                  alt={listing.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center">No Image</div>
-            )}
+      <section className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
+        <div>
+          <div className="grid gap-3 md:grid-cols-[1fr_0.42fr]">
+            <img src={listing.images[0]} alt={listing.title} className="h-80 w-full rounded-lg object-cover md:h-[520px]" />
+            <div className="grid gap-3">
+              {(listing.images.length > 1 ? listing.images.slice(1, 3) : listing.images).map((image, index) => (
+                <img key={image + index} src={image} alt="" className="h-40 w-full rounded-lg object-cover md:h-full" />
+              ))}
+            </div>
           </div>
 
-          {/* Details */}
-          <div>
-            <Card className="p-6">
-              <h1 className="text-3xl font-bold mb-4">{listing.title}</h1>
+          <Card className="mt-6 rounded-lg border-slate-200 bg-white p-6">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{listing.category}</Badge>
+              <Badge variant="outline">{listing.condition}</Badge>
+              {listing.vendorVerified && <Badge className="bg-teal-50 text-teal-700">Verified vendor</Badge>}
+            </div>
+            <h1 className="mt-4 text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">{listing.title}</h1>
+            <p className="mt-4 leading-7 text-slate-600">{listing.description}</p>
 
-              <div className="mb-6">
-                <p className="text-4xl font-bold text-blue-600 mb-1">₦{listing.price_per_day.toLocaleString()}</p>
-                <p className="text-gray-600">per day</p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-md bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">Vendor</p>
+                <p className="mt-1 font-semibold">{listing.vendorName}</p>
               </div>
-
-              <div className="mb-6 space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Rating:</span>
-                  <span className="font-semibold">
-                    {listing.rating.toFixed(1)} ⭐ ({listing.total_reviews})
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Condition:</span>
-                  <span className="font-semibold capitalize">{listing.condition}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Available:</span>
-                  <span className="font-semibold">
-                    {listing.available_quantity} of {listing.total_quantity}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Location:</span>
-                  <span className="font-semibold">
-                    {listing.city}, {listing.state}
-                  </span>
-                </div>
-              </div>
-
-              <div className="border-t pt-6 mb-6">
-                <h3 className="font-bold mb-2">Host Information</h3>
-                <p className="text-lg font-semibold">
-                  {listing.first_name} {listing.last_name}
+              <div className="rounded-md bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">Rating</p>
+                <p className="mt-1 flex items-center gap-1 font-semibold">
+                  <Star className="size-4 fill-amber-400 text-amber-400" /> {listing.rating} ({listing.reviews})
                 </p>
-                <p className="text-sm text-gray-600">Rating: {listing.host_rating.toFixed(1)} ⭐</p>
               </div>
+              <div className="rounded-md bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">Area</p>
+                <p className="mt-1 font-semibold">{listing.vendorArea}</p>
+              </div>
+            </div>
 
-              {listing.available ? (
-                <Link href={`/bookings/create?listing=${listing.id}`}>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg">Book Now</Button>
-                </Link>
-              ) : (
-                <Button disabled className="w-full bg-gray-400 text-white py-6 text-lg">
-                  Not Available
-                </Button>
-              )}
-            </Card>
-          </div>
+            <div className="mt-6">
+              <h2 className="font-semibold">Included in this rental</h2>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {listing.included.map((item) => (
+                  <div key={item} className="flex items-center gap-2 text-sm text-slate-600">
+                    <ShieldCheck className="size-4 text-teal-600" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
         </div>
 
-        {/* Description */}
-        <Card className="p-6 mt-8">
-          <h2 className="text-2xl font-bold mb-4">Description</h2>
-          <p className="text-gray-700 whitespace-pre-wrap">{listing.description}</p>
-        </Card>
-      </div>
-    </div>
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <Card className="rounded-lg border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/60">
+            <p className="text-sm text-slate-500">Daily rental</p>
+            <p className="mt-1 text-3xl font-semibold">{formatNaira(listing.pricePerDay)}</p>
+            <div className="mt-5 space-y-3 border-t pt-5 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-600">Security deposit</span>
+                <span className="font-semibold">{formatNaira(listing.securityDeposit)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-600">Escrow model</span>
+                <span className="font-semibold text-teal-700">Virtual hold</span>
+              </div>
+              <div className="flex items-start gap-2 rounded-md bg-teal-50 p-3 text-teal-900">
+                <ShieldCheck className="mt-0.5 size-4" />
+                <p>Funds remain marked as held until the vendor confirms returned and inspected.</p>
+              </div>
+            </div>
+            <Button asChild size="lg" className="mt-6 w-full bg-[#071b2f] text-white hover:bg-[#0b2b49]">
+              <Link href={`/bookings/create?listing=${listing.id}`}>
+                <CalendarDays /> Choose dates
+              </Link>
+            </Button>
+          </Card>
+
+          <Card className="mt-5 rounded-lg border-slate-200 bg-white p-5">
+            <div className="flex items-start gap-3">
+              <MapPin className="mt-1 size-5 text-teal-600" />
+              <div>
+                <p className="font-semibold">Pickup location</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{listing.location}</p>
+              </div>
+            </div>
+            <div className="mt-4 flex items-start gap-3">
+              <Truck className="mt-1 size-5 text-teal-600" />
+              <div>
+                <p className="font-semibold">i.Go-Logistics coverage</p>
+                <p className="mt-1 text-sm leading-6 text-slate-600">{listing.deliveryArea}</p>
+              </div>
+            </div>
+            {listing.vendorVerified && (
+              <div className="mt-4 flex items-center gap-2 rounded-md bg-slate-950 p-3 text-sm text-white">
+                <BadgeCheck className="size-4 text-teal-300" />
+                NIN/BVN profile complete
+              </div>
+            )}
+          </Card>
+        </aside>
+      </section>
+    </main>
   )
 }

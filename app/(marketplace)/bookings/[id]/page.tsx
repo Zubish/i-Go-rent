@@ -1,172 +1,138 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { getBooking } from "@/app/actions/booking-actions"
-import { getEscrowTransaction } from "@/app/actions/booking-actions"
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useParams } from "next/navigation"
+import { ArrowLeft, CheckCircle2, ShieldCheck, Truck } from "lucide-react"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { formatNaira, type DemoBooking } from "@/lib/demo-marketplace"
+import { getBookingById, markReturnedAndInspected } from "@/lib/demo-client-store"
 
 export default function BookingDetailPage() {
   const params = useParams()
-  const [booking, setBooking] = useState<any>(null)
-  const [escrow, setEscrow] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [booking, setBooking] = useState<DemoBooking | null>(null)
 
   useEffect(() => {
-    const fetchData = async () => {
-      const bookingResult = await getBooking(params.id as string)
-      if (bookingResult.success) {
-        setBooking(bookingResult.booking)
-
-        const escrowResult = await getEscrowTransaction(bookingResult.booking.escrow_transaction_id)
-        if (escrowResult.success) {
-          setEscrow(escrowResult.escrow)
-        }
-      }
-      setLoading(false)
-    }
-
-    fetchData()
+    setBooking(getBookingById(params.id as string) || null)
   }, [params.id])
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
-  }
-
   if (!booking) {
-    return <div className="min-h-screen flex items-center justify-center">Booking not found</div>
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7fbfb] p-6">
+        <Card className="max-w-md rounded-lg p-8 text-center">
+          <p className="font-semibold">Booking not found</p>
+          <Button asChild className="mt-5 bg-[#071b2f] text-white hover:bg-[#0b2b49]">
+            <Link href="/browse">Browse rentals</Link>
+          </Button>
+        </Card>
+      </main>
+    )
   }
 
-  const isCompleted = booking.status === "completed"
-  const isActive = booking.status === "active"
+  const escrowCopy =
+    booking.escrowStatus === "deposit_refunded"
+      ? "Returned and inspected. Deposit refund and vendor release are recorded."
+      : "Funds are currently held in virtual escrow pending return inspection."
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <Link href="/dashboard" className="text-blue-600 hover:underline mb-6">
-          ← Back to Dashboard
+    <main className="min-h-screen bg-[#f7fbfb]">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+        <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+          <ArrowLeft className="size-4" /> Dashboard
         </Link>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            {/* Booking Details */}
-            <Card className="p-6 mb-8">
-              <h1 className="text-3xl font-bold mb-4">{booking.listing_title}</h1>
-
-              <div className="space-y-4 mb-6">
-                <div className="flex justify-between border-b pb-3">
-                  <span className="text-gray-600">Booking ID</span>
-                  <span className="font-semibold">{booking.id}</span>
-                </div>
-                <div className="flex justify-between border-b pb-3">
-                  <span className="text-gray-600">Check-in</span>
-                  <span className="font-semibold">{new Date(booking.start_date).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between border-b pb-3">
-                  <span className="text-gray-600">Check-out</span>
-                  <span className="font-semibold">{new Date(booking.end_date).toLocaleDateString()}</span>
-                </div>
-                <div className="flex justify-between border-b pb-3">
-                  <span className="text-gray-600">Duration</span>
-                  <span className="font-semibold">{booking.number_of_days} days</span>
-                </div>
-              </div>
-
-              {/* Status Badge */}
-              <div className="mb-6">
-                <span
-                  className={`px-4 py-2 rounded-full text-white font-semibold ${
-                    booking.status === "completed"
-                      ? "bg-green-600"
-                      : booking.status === "active"
-                        ? "bg-blue-600"
-                        : booking.status === "confirmed"
-                          ? "bg-yellow-600"
-                          : "bg-gray-600"
-                  }`}
-                >
-                  {booking.status.toUpperCase()}
-                </span>
-              </div>
-
-              {/* Action Buttons */}
-              {isActive && <Button className="w-full bg-green-600 hover:bg-green-700 mb-3">Mark as Completed</Button>}
-
-              {isCompleted && (
-                <Link href={`/bookings/${booking.id}/review`}>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700">Leave Review</Button>
-                </Link>
-              )}
-            </Card>
-
-            {/* Contact Information */}
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Parties</h2>
-
-              <div className="space-y-6">
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Renter</p>
-                  <p className="font-bold">
-                    {booking.renter_first_name} {booking.renter_last_name}
-                  </p>
-                  <p className="text-sm text-gray-600">{booking.renter_email}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">Host</p>
-                  <p className="font-bold">
-                    {booking.host_first_name} {booking.host_last_name}
-                  </p>
-                  <p className="text-sm text-gray-600">{booking.host_email}</p>
-                </div>
-              </div>
-            </Card>
+        <Card className="mt-6 overflow-hidden rounded-lg border-slate-200 bg-white shadow-sm">
+          <div className="bg-[#071b2f] p-6 text-white">
+            <Badge className="bg-teal-400 text-[#071b2f]">Booking confirmed</Badge>
+            <h1 className="mt-4 text-3xl font-semibold tracking-normal">{booking.title}</h1>
+            <p className="mt-2 text-sm text-slate-300">Reference {booking.id}</p>
           </div>
 
-          {/* Payment & Escrow */}
-          <div>
-            <Card className="p-6 mb-6">
-              <h2 className="text-2xl font-bold mb-4">Payment Details</h2>
-
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Amount</span>
-                  <span className="font-bold">₦{booking.total_price.toLocaleString()}</span>
+          <div className="grid gap-6 p-6 lg:grid-cols-[1fr_340px]">
+            <div className="space-y-5">
+              <section>
+                <h2 className="font-semibold">Rental details</h2>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <Info label="Renter" value={booking.renterName} />
+                  <Info label="Vendor" value={booking.vendorName} />
+                  <Info label="Dates" value={`${booking.startDate} to ${booking.endDate}`} />
+                  <Info label="Duration" value={`${booking.days} days`} />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Status</span>
-                  <span className="font-semibold text-green-600">Paid</span>
-                </div>
-              </div>
-            </Card>
+              </section>
 
-            {escrow && (
-              <Card className="p-6 bg-blue-50">
-                <h3 className="font-bold mb-3">Escrow Status</h3>
-
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Amount Held</span>
-                    <span className="font-semibold">₦{escrow.amount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Status</span>
-                    <span className="font-semibold capitalize">{escrow.status}</span>
+              <section className="rounded-lg border border-slate-200 p-5">
+                <div className="flex items-start gap-3">
+                  <ShieldCheck className="mt-1 size-5 text-teal-600" />
+                  <div>
+                    <h2 className="font-semibold">Virtual escrow status</h2>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{escrowCopy}</p>
+                    <Badge className="mt-3 bg-teal-50 text-teal-700">{booking.escrowStatus.replaceAll("_", " ")}</Badge>
                   </div>
                 </div>
+              </section>
 
-                <div className="mt-4 p-3 bg-blue-100 rounded text-xs text-blue-900">
-                  {escrow.status === "held" && "Funds are securely held until rental completion."}
-                  {escrow.status === "released_to_host" && "Funds have been released to the host."}
-                  {escrow.status === "refunded_to_renter" && "Funds have been refunded to the renter."}
+              <section className="rounded-lg border border-slate-200 p-5">
+                <div className="flex items-start gap-3">
+                  <Truck className="mt-1 size-5 text-teal-600" />
+                  <div>
+                    <h2 className="font-semibold">Delivery</h2>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      {booking.deliveryType === "igo-logistics"
+                        ? "i.Go-Logistics flat-fee dispatch selected."
+                        : "Self-pickup selected. Coordinate pickup with the vendor."}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <aside>
+              <Card className="rounded-lg border-slate-200 bg-slate-50 p-5">
+                <h2 className="font-semibold">Payment breakdown</h2>
+                <div className="mt-4 space-y-3 text-sm">
+                  <Row label="Rental fee" value={formatNaira(booking.rentalFee)} />
+                  <Row label="Security deposit" value={formatNaira(booking.securityDeposit)} />
+                  <Row label="Delivery" value={formatNaira(booking.deliveryFee)} />
+                  <div className="border-t pt-3">
+                    <Row label="Total paid" value={formatNaira(booking.totalPaid)} strong />
+                  </div>
                 </div>
               </Card>
-            )}
+
+              <Button
+                type="button"
+                onClick={() => setBooking(markReturnedAndInspected(booking.id) || booking)}
+                disabled={booking.escrowStatus === "deposit_refunded"}
+                className="mt-4 w-full bg-teal-500 text-white hover:bg-teal-600"
+              >
+                <CheckCircle2 />
+                Mark returned and inspected
+              </Button>
+            </aside>
           </div>
-        </div>
+        </Card>
       </div>
+    </main>
+  )
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-slate-50 p-4">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 font-semibold">{value}</p>
+    </div>
+  )
+}
+
+function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className={`flex justify-between gap-4 ${strong ? "text-base font-semibold" : ""}`}>
+      <span className="text-slate-600">{label}</span>
+      <span className="font-semibold text-slate-950">{value}</span>
     </div>
   )
 }
