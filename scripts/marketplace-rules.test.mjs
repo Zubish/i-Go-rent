@@ -12,7 +12,9 @@ const health = read("lib/marketplace-health.ts");
 const listingsRoute = read("app/api/listings/route.ts");
 const listingDetailRoute = read("app/api/listings/[id]/route.ts");
 const bookingsRoute = read("app/api/bookings/route.ts");
+const paymentsCheckoutRoute = read("app/api/payments/checkout/route.ts");
 const bookingPage = read("app/(marketplace)/bookings/[id]/page.tsx");
+const paymentCallbackPage = read("app/(marketplace)/payments/callback/page.tsx");
 const browsePage = read("app/(marketplace)/browse/page.tsx");
 const dashboardPage = read("app/(dashboard)/dashboard/page.tsx");
 const demoStore = read("lib/demo-client-store.ts");
@@ -47,6 +49,11 @@ assert.equal(
   "Authenticated booking smoke checks should be available as npm run smoke:production-booking.",
 );
 assert.equal(
+  packageJson.scripts["smoke:production-payment"],
+  "node scripts/smoke-production-payment.mjs",
+  "Payment checkout smoke checks should be available as npm run smoke:production-payment.",
+);
+assert.equal(
   packageJson.scripts["smoke:production-vendor"],
   "node scripts/smoke-production-vendor.mjs",
   "Verified vendor listing smoke checks should be available as npm run smoke:production-vendor.",
@@ -65,8 +72,13 @@ assertPresent(
 );
 assertPresent(
   health,
-  /requiredTables[\s\S]*escrow_transactions[\s\S]*dispatch_assignments/,
+  /requiredTables[\s\S]*escrow_transactions[\s\S]*payments[\s\S]*dispatch_assignments/,
   "Marketplace health must check trust-critical tables.",
+);
+assertPresent(
+  health,
+  /paymentProviderConfigured/,
+  "Marketplace health should disclose payment-provider readiness.",
 );
 assertPresent(
   health,
@@ -131,9 +143,44 @@ assertAbsent(
   "Booking creation should not create held escrow before payment verification.",
 );
 assertPresent(
+  paymentsCheckoutRoute,
+  /FLUTTERWAVE_SECRET_KEY/,
+  "Payment checkout should fail clearly when Flutterwave is not configured.",
+);
+assertPresent(
+  paymentsCheckoutRoute,
+  /Only the renter can pay for this booking/,
+  "Payment checkout should only allow the booking renter to pay.",
+);
+assertPresent(
+  paymentsCheckoutRoute,
+  /booking\.status !== "pending"/,
+  "Payment checkout should only initialize for pending bookings.",
+);
+assertPresent(
+  paymentsCheckoutRoute,
+  /initializeFlutterwavePayment[\s\S]*INSERT INTO payments/,
+  "Payment checkout should initialize the provider and record initiated payments.",
+);
+assertPresent(
   bookingPage,
   /payment_pending[\s\S]*Escrow will be marked as held only after payment is verified/,
   "Booking detail page should explain payment-pending escrow state.",
+);
+assertPresent(
+  bookingPage,
+  /Pay and hold escrow/,
+  "Booking detail page should let renters start payment for pending bookings.",
+);
+assertPresent(
+  bookingPage,
+  /booking\.escrowStatus === "payment_pending"[\s\S]*booking\.escrowStatus === "deposit_refunded"/,
+  "Return inspection should be disabled while payment is pending.",
+);
+assertPresent(
+  paymentCallbackPage,
+  /Payment is being verified/,
+  "Payment callback should give renters a clear verification state.",
 );
 
 for (const source of [browsePage, dashboardPage]) {

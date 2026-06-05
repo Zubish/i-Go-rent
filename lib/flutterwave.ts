@@ -50,10 +50,16 @@ export async function initializeFlutterwavePayment(
   payload: FlutterwavePaymentPayload,
 ) {
   try {
+    const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
+
+    if (!secretKey) {
+      return { success: false, error: "Payment provider is not configured" };
+    }
+
     const response = await fetch("https://api.flutterwave.com/v3/payments", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
+        Authorization: `Bearer ${secretKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
@@ -78,12 +84,18 @@ export async function initializeFlutterwavePayment(
 
 export async function verifyFlutterwavePayment(transactionId: string) {
   try {
+    const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
+
+    if (!secretKey) {
+      return { success: false, error: "Payment provider is not configured" };
+    }
+
     const response = await fetch(
       `https://api.flutterwave.com/v3/transactions/${transactionId}/verify`,
       {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
+          Authorization: `Bearer ${secretKey}`,
         },
       },
     );
@@ -108,12 +120,18 @@ export async function verifyFlutterwavePayment(transactionId: string) {
 
 export async function refundFlutterwavePayment(transactionId: string) {
   try {
+    const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
+
+    if (!secretKey) {
+      return { success: false, error: "Payment provider is not configured" };
+    }
+
     const response = await fetch(
       `https://api.flutterwave.com/v3/transactions/${transactionId}/refund`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
+          Authorization: `Bearer ${secretKey}`,
         },
       },
     );

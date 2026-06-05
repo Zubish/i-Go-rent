@@ -21,6 +21,8 @@ export default function BookingDetailPage() {
   const [booking, setBooking] = useState<DemoBooking | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
 
   useEffect(() => {
     async function loadBooking() {
@@ -52,6 +54,32 @@ export default function BookingDetailPage() {
       if (response.ok && data.booking) setBooking(data.booking);
     } finally {
       setUpdating(false);
+    }
+  }
+
+  async function handlePaymentCheckout() {
+    if (!booking) return;
+    setPaymentError("");
+    setPaying(true);
+
+    try {
+      const response = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.paymentLink) {
+        setPaymentError(data.error || "Payment checkout could not start");
+        return;
+      }
+
+      window.location.assign(data.paymentLink);
+    } catch {
+      setPaymentError("Payment checkout could not start");
+    } finally {
+      setPaying(false);
     }
   }
 
@@ -314,7 +342,11 @@ export default function BookingDetailPage() {
                   />
                   <div className="border-t pt-3">
                     <Row
-                      label="Total paid"
+                      label={
+                        booking.escrowStatus === "payment_pending"
+                          ? "Payment due"
+                          : "Total paid"
+                      }
                       value={formatNaira(booking.totalPaid)}
                       strong
                     />
@@ -322,11 +354,34 @@ export default function BookingDetailPage() {
                 </div>
               </Card>
 
+              {booking.escrowStatus === "payment_pending" && (
+                <Button
+                  type="button"
+                  onClick={handlePaymentCheckout}
+                  disabled={paying}
+                  className="mt-4 w-full bg-[#071b2f] text-white hover:bg-[#0b2b49]"
+                >
+                  <ShieldCheck />
+                  {paying ? "Starting payment..." : "Pay and hold escrow"}
+                </Button>
+              )}
+
+              {paymentError && (
+                <div
+                  className="mt-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                  role="alert"
+                >
+                  {paymentError}
+                </div>
+              )}
+
               <Button
                 type="button"
                 onClick={handleReturnedAndInspected}
                 disabled={
-                  booking.escrowStatus === "deposit_refunded" || updating
+                  booking.escrowStatus === "payment_pending" ||
+                  booking.escrowStatus === "deposit_refunded" ||
+                  updating
                 }
                 className="mt-4 w-full bg-teal-500 text-white hover:bg-teal-600"
               >

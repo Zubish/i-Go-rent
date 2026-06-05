@@ -253,6 +253,24 @@ CREATE TABLE IF NOT EXISTS escrow_transactions (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  escrow_transaction_id UUID REFERENCES escrow_transactions(id) ON DELETE CASCADE,
+  booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount DECIMAL(12, 2) NOT NULL,
+  currency VARCHAR(3) DEFAULT 'NGN',
+  payment_method VARCHAR(50) DEFAULT 'flutterwave',
+  status VARCHAR(50) DEFAULT 'initiated',
+  flutterwave_transaction_id VARCHAR(255),
+  flutterwave_reference VARCHAR(255) UNIQUE,
+  failure_reason TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE payments ALTER COLUMN escrow_transaction_id DROP NOT NULL;
+
 CREATE TABLE IF NOT EXISTS dispatch_assignments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
@@ -280,6 +298,9 @@ CREATE TABLE IF NOT EXISTS dispatch_assignments (
 CREATE INDEX IF NOT EXISTS idx_vendor_profiles_user_id ON vendor_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_logistics_profiles_user_id ON logistics_provider_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_listing_dates_status ON bookings(listing_id, start_date, end_date, status);
+CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON payments(booking_id);
+CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
 CREATE INDEX IF NOT EXISTS idx_dispatch_booking_id ON dispatch_assignments(booking_id);
 CREATE INDEX IF NOT EXISTS idx_dispatch_provider_id ON dispatch_assignments(logistics_provider_id);
 CREATE INDEX IF NOT EXISTS idx_dispatch_status ON dispatch_assignments(dispatch_status);

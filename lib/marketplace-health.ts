@@ -12,6 +12,7 @@ export type MarketplaceHealth = {
   };
   checks: {
     databaseConfigured: boolean;
+    paymentProviderConfigured: boolean;
     requiredTablesPresent: boolean;
     hasDatabaseListings: boolean;
   };
@@ -24,12 +25,16 @@ const requiredTables = [
   "listings",
   "bookings",
   "escrow_transactions",
+  "payments",
   "dispatch_assignments",
 ];
 
 export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
   const checkedAt = new Date().toISOString();
   const databaseConfigured = Boolean(process.env.DATABASE_URL);
+  const paymentProviderConfigured = Boolean(
+    process.env.FLUTTERWAVE_SECRET_KEY && process.env.FLUTTERWAVE_SECRET_HASH,
+  );
 
   if (!databaseConfigured) {
     return {
@@ -43,6 +48,7 @@ export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
       },
       checks: {
         databaseConfigured: false,
+        paymentProviderConfigured,
         requiredTablesPresent: false,
         hasDatabaseListings: false,
       },
@@ -83,8 +89,14 @@ export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
     if (requiredTablesPresent && !databaseListings) {
       issues.push("Database has no available listings");
     }
+    if (!paymentProviderConfigured) {
+      issues.push("Flutterwave payment provider is not fully configured");
+    }
 
-    const healthy = requiredTablesPresent && Number(databaseListings) > 0;
+    const healthy =
+      requiredTablesPresent &&
+      Number(databaseListings) > 0 &&
+      paymentProviderConfigured;
 
     return {
       status: healthy ? "healthy" : "degraded",
@@ -97,6 +109,7 @@ export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
       },
       checks: {
         databaseConfigured: true,
+        paymentProviderConfigured,
         requiredTablesPresent,
         hasDatabaseListings: Number(databaseListings) > 0,
       },
@@ -114,6 +127,7 @@ export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
       },
       checks: {
         databaseConfigured: true,
+        paymentProviderConfigured,
         requiredTablesPresent: false,
         hasDatabaseListings: false,
       },
