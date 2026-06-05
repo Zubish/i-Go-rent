@@ -46,6 +46,11 @@ assert.equal(
   "node scripts/smoke-production-booking.mjs",
   "Authenticated booking smoke checks should be available as npm run smoke:production-booking.",
 );
+assert.equal(
+  packageJson.scripts["smoke:production-vendor"],
+  "node scripts/smoke-production-vendor.mjs",
+  "Verified vendor listing smoke checks should be available as npm run smoke:production-vendor.",
+);
 
 assertAbsent(
   nextConfig,
@@ -78,6 +83,21 @@ assertPresent(
   listingsRoute,
   /degraded:\s*true[\s\S]*source:\s*"seeded_fallback"/,
   "Listings API should disclose degraded seed fallback responses.",
+);
+assertPresent(
+  listingsRoute,
+  /Vendor KYC incomplete/,
+  "Listing creation should remain gated by vendor KYC.",
+);
+assertPresent(
+  listingsRoute,
+  /numberInRange[\s\S]*pricePerDay[\s\S]*maxRentalDays/,
+  "Listing creation should validate pricing and rental limits.",
+);
+assertPresent(
+  listingsRoute,
+  /Add at least one valid http or https photo URL/,
+  "Listing creation should require at least one valid photo URL.",
 );
 assertPresent(
   listingDetailRoute,
@@ -123,6 +143,12 @@ for (const source of [browsePage, dashboardPage]) {
     "Degraded marketplace notices should be accessible live status messages.",
   );
 }
+
+assertPresent(
+  dashboardPage,
+  /listingError[\s\S]*role="alert"/,
+  "Vendor listing errors should be announced as accessible alerts.",
+);
 
 assertPresent(
   demoStore,

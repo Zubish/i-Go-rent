@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth";
 import {
+  categories,
   getKycStatus,
   maxListingImages,
   seedListings,
@@ -20,6 +21,28 @@ function splitImageUrls(value: unknown) {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, maxListingImages);
+}
+
+function cleanText(value: unknown, maxLength = 800) {
+  return String(value || "")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function isHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+function numberInRange(value: unknown, min: number, max: number) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= min && number <= max
+    ? number
+    : null;
 }
 
 function fallbackListings(filters: {
@@ -100,8 +123,78 @@ export async function POST(request: NextRequest) {
     }
 
     const input = await request.json();
-    const images = splitImageUrls(input.imageUrls);
-    const categoryId = await ensureCategoryId(input.category || "Events");
+    const title = cleanText(input.title, 120);
+    const description = cleanText(input.description, 1200);
+    const location = cleanText(input.location, 180);
+    const knownDefects = cleanText(input.knownDefects, 800);
+    const accessories = cleanText(input.accessories, 800);
+    const usageLimits = cleanText(input.usageLimits, 800);
+    const category = cleanText(input.category, 40);
+    const condition = cleanText(input.condition, 40);
+    const images = splitImageUrls(input.imageUrls).filter(isHttpUrl);
+    const allowedCategories = new Set<string>(
+      categories.map((item) => item.name),
+    );
+    const allowedConditions = new Set(["New", "Excellent", "Good"]);
+    const pricePerDay = numberInRange(input.pricePerDay, 1, 20_000_000);
+    const securityDeposit = numberInRange(
+      input.securityDeposit,
+      0,
+      100_000_000,
+    );
+    const replacementValue = numberInRange(
+      input.replacementValue,
+      1,
+      500_000_000,
+    );
+    const lateReturnFee = numberInRange(input.lateReturnFee, 0, 20_000_000);
+    const maxRentalDays = numberInRange(input.maxRentalDays || 7, 1, 30);
+
+    if (
+      !title ||
+      !description ||
+      !location ||
+      !knownDefects ||
+      !accessories ||
+      !usageLimits
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Listing title, description, pickup location, and condition contract are required",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!allowedCategories.has(category) || !allowedConditions.has(condition)) {
+      return NextResponse.json(
+        { error: "Choose a supported category and condition" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      pricePerDay === null ||
+      securityDeposit === null ||
+      replacementValue === null ||
+      lateReturnFee === null ||
+      maxRentalDays === null
+    ) {
+      return NextResponse.json(
+        { error: "Listing pricing and rental limits must be valid numbers" },
+        { status: 400 },
+      );
+    }
+
+    if (!images.length) {
+      return NextResponse.json(
+        { error: "Add at least one valid http or https photo URL" },
+        { status: 400 },
+      );
+    }
+
+    const categoryId = await ensureCategoryId(category);
     const result = await sql(
       `INSERT INTO listings (
         host_id, category_id, title, description, price_per_day, security_deposit_amount,
@@ -117,20 +210,20 @@ export async function POST(request: NextRequest) {
       [
         authUser.userId,
         categoryId,
-        input.title,
-        input.description,
-        Number(input.pricePerDay),
-        Number(input.securityDeposit),
-        input.location,
+        title,
+        description,
+        pricePerDay,
+        securityDeposit,
+        location,
         vendor?.area || "Lagos",
-        input.condition,
+        condition,
         images,
-        input.knownDefects,
-        input.accessories,
-        input.usageLimits,
-        Number(input.replacementValue),
-        Number(input.lateReturnFee),
-        Number(input.maxRentalDays || 7),
+        knownDefects,
+        accessories,
+        usageLimits,
+        replacementValue,
+        lateReturnFee,
+        maxRentalDays,
         images.length,
       ],
     );

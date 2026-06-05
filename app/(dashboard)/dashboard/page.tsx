@@ -482,7 +482,10 @@ export default function DashboardPage() {
                   />
                 </label>
                 {listingError && (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  <div
+                    className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                    role="alert"
+                  >
                     {listingError}
                   </div>
                 )}
@@ -494,7 +497,11 @@ export default function DashboardPage() {
                 </Button>
               </form>
               {createdListingId && (
-                <div className="mt-4 rounded-md bg-teal-50 p-4 text-sm text-teal-900">
+                <div
+                  className="mt-4 rounded-md bg-teal-50 p-4 text-sm text-teal-900"
+                  role="status"
+                  aria-live="polite"
+                >
                   Listing created.{" "}
                   <Link
                     className="font-semibold underline"
