@@ -4,11 +4,13 @@ import type React from "react";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   BadgeCheck,
   CalendarCheck,
   CircleDollarSign,
+  ImagePlus,
   PackagePlus,
   ShieldCheck,
   Truck,
@@ -24,153 +26,131 @@ import {
   categories,
   formatNaira,
   getKycStatus,
-  getRoleLabel,
   legalUseWarning,
-  maxListingImageSizeMb,
+  maxListingImages,
   type DemoBooking,
   type DemoListing,
   type DemoUser,
-  type UserRole,
 } from "@/lib/demo-marketplace";
-import { getDemoSession, signOutDemo } from "@/lib/demo-client-store";
-
-const dashboardRoles: UserRole[] = ["renter", "vendor", "logistics"];
+import { signOutDemo } from "@/lib/demo-client-store";
 
 const defaultListingForm = {
-  title: "Professional Sound System",
+  title: "",
   category: "Events" as DemoListing["category"],
-  description:
-    "Complete party and corporate-event audio setup with two speakers, mixer, wireless microphones, stands, and setup support.",
-  pricePerDay: "45000",
-  securityDeposit: "80000",
-  location: "Admiralty Way, Lekki Phase 1",
-  deliveryArea: "Lekki, VI, Ikoyi, Ajah",
-  condition: "Excellent" as DemoListing["condition"],
-  knownDefects:
-    "Minor scuff marks on speaker stands; mixer and microphones are fully functional.",
-  accessories:
-    "2 powered speakers, mixer, 2 wireless microphones, stands, XLR cables, power cables.",
-  usageLimits:
-    "Indoor or covered outdoor use only. Not for rain exposure or generator overload.",
-  replacementValue: "650000",
-  lateReturnFee: "15000",
-  maxRentalDays: "5",
-  imageUrls:
-    "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1200&q=80, https://images.unsplash.com/photo-1505236858219-8359eb29e329?auto=format&fit=crop&w=1200&q=80",
+  description: "",
+  pricePerDay: "",
+  securityDeposit: "",
+  location: "",
+  condition: "Good" as DemoListing["condition"],
+  knownDefects: "",
+  accessories: "",
+  usageLimits: "",
+  replacementValue: "",
+  lateReturnFee: "",
+  maxRentalDays: "3",
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [session, setSession] = useState<DemoUser | null>(null);
-  const [role, setRole] = useState<UserRole>("renter");
   const [listings, setListings] = useState<DemoListing[]>([]);
-  const [bookings, setBookings] = useState<DemoBooking[]>([]);
+  const [renterBookings, setRenterBookings] = useState<DemoBooking[]>([]);
+  const [vendorBookings, setVendorBookings] = useState<DemoBooking[]>([]);
+  const [dispatchBookings, setDispatchBookings] = useState<DemoBooking[]>([]);
   const [form, setForm] = useState(defaultListingForm);
+  const [photoDataUrls, setPhotoDataUrls] = useState<string[]>([]);
   const [createdListingId, setCreatedListingId] = useState("");
   const [listingError, setListingError] = useState("");
   const [loadingRecords, setLoadingRecords] = useState(true);
   const [marketplaceNotice, setMarketplaceNotice] = useState("");
+  const [submittingListing, setSubmittingListing] = useState(false);
 
   useEffect(() => {
-    async function hydrateSession() {
-      const params = new URLSearchParams(window.location.search);
-      const queryRole = params.get("role");
-      const localUser = getDemoSession();
-      let user = localUser;
+    let active = true;
+
+    async function hydrate() {
+      setLoadingRecords(true);
 
       try {
-        const response = await fetch("/api/auth/session", {
+        const sessionResponse = await fetch("/api/auth/session", {
           cache: "no-store",
         });
-        if (response.ok) {
-          const data = await response.json();
-          if (data.user) user = data.user;
+        const sessionData = await sessionResponse.json();
+        const user = sessionResponse.ok ? sessionData.user : null;
+
+        if (!user) {
+          signOutDemo();
+          router.replace("/signin");
+          return;
         }
-      } catch {
-        user = localUser;
-      }
 
-      const activeRole =
-        queryRole === "vendor" || queryRole === "logistics"
-          ? queryRole
-          : user?.role === "vendor" || user?.role === "logistics"
-            ? user.role
-            : "renter";
-
-      setSession(user);
-      setRole(activeRole);
-      await hydrateRecords(activeRole);
-    }
-
-    async function hydrateRecords(activeRole: UserRole) {
-      setLoadingRecords(true);
-      try {
-        const [listingResponse, bookingResponse] = await Promise.all([
-          fetch("/api/listings", { cache: "no-store" }),
-          fetch(`/api/bookings?role=${activeRole}`, { cache: "no-store" }),
-        ]);
-        const [listingData, bookingData] = await Promise.all([
+        const [listingResponse, renterResponse, vendorResponse] =
+          await Promise.all([
+            fetch("/api/listings", { cache: "no-store" }),
+            fetch("/api/bookings?role=renter", { cache: "no-store" }),
+            fetch("/api/bookings?role=vendor", { cache: "no-store" }),
+          ]);
+        const [listingData, renterData, vendorData] = await Promise.all([
           listingResponse.json(),
-          bookingResponse.json(),
+          renterResponse.json(),
+          vendorResponse.json(),
         ]);
+
+        let logisticsData = { bookings: [] };
+        if (user.role === "logistics") {
+          const logisticsResponse = await fetch("/api/bookings?role=logistics", {
+            cache: "no-store",
+          });
+          logisticsData = await logisticsResponse.json();
+        }
+
+        if (!active) return;
+
+        setSession(user);
         setListings(
           Array.isArray(listingData.listings) ? listingData.listings : [],
         );
+        setRenterBookings(
+          Array.isArray(renterData.bookings) ? renterData.bookings : [],
+        );
+        setVendorBookings(
+          Array.isArray(vendorData.bookings) ? vendorData.bookings : [],
+        );
+        setDispatchBookings(
+          Array.isArray(logisticsData.bookings) ? logisticsData.bookings : [],
+        );
         setMarketplaceNotice(
           listingData.degraded || listingData.source === "seeded_fallback"
-            ? "Marketplace is showing curated seed listings while the production database is being restored."
+            ? "Marketplace is running in fallback mode. New listings and bookings may be limited."
             : "",
         );
-        setBookings(
-          Array.isArray(bookingData.bookings) ? bookingData.bookings : [],
-        );
       } catch {
-        setListings([]);
-        setBookings([]);
+        if (!active) return;
         setMarketplaceNotice("Marketplace records could not be loaded.");
       } finally {
-        setLoadingRecords(false);
+        if (active) setLoadingRecords(false);
       }
     }
 
-    hydrateSession();
-  }, []);
+    hydrate();
 
-  useEffect(() => {
-    async function refreshBookingsForRole() {
-      try {
-        const response = await fetch(`/api/bookings?role=${role}`, {
-          cache: "no-store",
-        });
-        const data = await response.json();
-        setBookings(Array.isArray(data.bookings) ? data.bookings : []);
-      } catch {
-        setBookings([]);
-      }
-    }
+    return () => {
+      active = false;
+    };
+  }, [router]);
 
-    refreshBookingsForRole();
-  }, [role]);
-
-  const vendorListings = useMemo(() => {
+  const myListings = useMemo(() => {
     if (!session) return [];
-    return listings.filter(
-      (listing) =>
-        listing.vendorId === session.id ||
-        listing.vendorName === `${session.firstName} ${session.lastName}`,
-    );
+    return listings.filter((listing) => listing.vendorId === session.id);
   }, [listings, session]);
 
-  const activeBookings = bookings.filter(
-    (booking) => booking.escrowStatus === "held",
-  );
-  const dispatchBookings = bookings.filter((booking) => booking.dispatch);
-  const visibleDispatchBookings = dispatchBookings;
-  const totalEscrow = bookings.reduce(
+  const vendorKyc = getKycStatus(session, "vendor");
+  const renterKyc = getKycStatus(session, "renter");
+  const logisticsKyc = getKycStatus(session, "logistics");
+  const totalBookingValue = [...renterBookings, ...vendorBookings].reduce(
     (sum, booking) => sum + booking.totalPaid,
     0,
   );
-  const activeKyc = getKycStatus(session, role);
-  const vendorKyc = getKycStatus(session, "vendor");
 
   const handleListingChange = (
     event: React.ChangeEvent<
@@ -181,30 +161,39 @@ export default function DashboardPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handlePhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []).slice(0, maxListingImages);
+    const dataUrls = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(new Error("Could not read photo"));
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+    setPhotoDataUrls(dataUrls);
+  };
+
   const handleCreateListing = async (event: React.FormEvent) => {
     event.preventDefault();
     setListingError("");
+    setSubmittingListing(true);
 
     try {
       const response = await fetch("/api/listings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: form.title,
-          category: form.category,
-          description: form.description,
+          ...form,
           pricePerDay: Number(form.pricePerDay),
           securityDeposit: Number(form.securityDeposit),
-          location: form.location,
-          deliveryArea: form.deliveryArea,
-          condition: form.condition,
-          knownDefects: form.knownDefects,
-          accessories: form.accessories,
-          usageLimits: form.usageLimits,
           replacementValue: Number(form.replacementValue),
           lateReturnFee: Number(form.lateReturnFee),
           maxRentalDays: Number(form.maxRentalDays),
-          imageUrls: form.imageUrls,
+          imageUrls: photoDataUrls,
         }),
       });
       const data = await response.json();
@@ -220,72 +209,60 @@ export default function DashboardPage() {
         listing,
         ...current.filter((item) => item.id !== listing.id),
       ]);
+      setForm(defaultListingForm);
+      setPhotoDataUrls([]);
     } catch (error) {
       setListingError(
         error instanceof Error ? error.message : "Could not create listing",
       );
+    } finally {
+      setSubmittingListing(false);
     }
   };
 
   const handleSignOut = async () => {
     await signOut();
     signOutDemo();
-    setSession(null);
+    router.replace("/");
   };
+
+  if (!session && loadingRecords) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7fbfb] p-6">
+        <Card className="rounded-lg border-slate-200 bg-white p-8 text-center">
+          <p className="font-semibold">Loading your workspace...</p>
+        </Card>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f7fbfb]">
-      <header className="border-b bg-[#071b2f] text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="font-semibold">
-            i.Go-rent
-          </Link>
-          <div className="flex items-center gap-2">
-            <Button
-              asChild
-              variant="ghost"
-              className="text-white hover:bg-white/10 hover:text-white"
-            >
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+          <div>
+            <Link href="/" className="text-sm font-semibold text-[#071b2f]">
+              i.Go-rent
+            </Link>
+            <h1 className="mt-3 text-4xl font-semibold tracking-normal text-slate-950">
+              {session ? `Welcome, ${session.firstName}` : "Workspace"}
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+              Manage your rentals, listings, escrow states, and dispatch work
+              from one account.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="bg-white">
               <Link href="/browse">Browse</Link>
             </Button>
             <Button
               onClick={handleSignOut}
               variant="outline"
-              className="border-white/20 bg-transparent text-white hover:bg-white/10"
+              className="bg-white"
             >
               Sign out
             </Button>
-          </div>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-          <div>
-            <Badge className="bg-teal-50 text-teal-700">
-              {getRoleLabel(role)} workspace
-            </Badge>
-            <h1 className="mt-3 text-4xl font-semibold tracking-normal text-slate-950">
-              {session ? `Welcome, ${session.firstName}` : "Dashboard"}
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-              Manage listings, bookings, dispatch assignments, and escrow states
-              for the Lagos rental flow.
-            </p>
-          </div>
-          <div className="grid grid-cols-3 rounded-lg bg-white p-1 shadow-sm">
-            {dashboardRoles.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setRole(value)}
-                className={`rounded-md px-5 py-2 text-sm font-medium ${
-                  role === value ? "bg-[#071b2f] text-white" : "text-slate-600"
-                }`}
-              >
-                {value === "logistics" ? "Logistics" : getRoleLabel(value)}
-              </button>
-            ))}
           </div>
         </div>
 
@@ -293,23 +270,13 @@ export default function DashboardPage() {
           <Metric
             icon={CalendarCheck}
             label="Bookings"
-            value={bookings.length.toString()}
+            value={(renterBookings.length + vendorBookings.length).toString()}
           />
+          <Metric icon={ShieldCheck} label="Trust status" value={renterKyc.label} />
           <Metric
-            icon={ShieldCheck}
-            label="KYC status"
-            value={activeKyc.label}
-          />
-          <Metric
-            icon={role === "logistics" ? Truck : CircleDollarSign}
-            label={
-              role === "logistics" ? "Dispatch jobs" : "Total booking value"
-            }
-            value={
-              role === "logistics"
-                ? dispatchBookings.length.toString()
-                : formatNaira(totalEscrow)
-            }
+            icon={CircleDollarSign}
+            label="Booking value"
+            value={formatNaira(totalBookingValue)}
           />
         </div>
 
@@ -323,392 +290,283 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {role === "vendor" ? (
-          <div className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <Card className="rounded-lg border-slate-200 bg-white p-6">
-              <h2 className="flex items-center gap-2 text-xl font-semibold">
-                <PackagePlus className="size-5 text-teal-600" /> Add rental
-                listing
-              </h2>
-              <form onSubmit={handleCreateListing} className="mt-5 space-y-4">
-                <KycPanel
-                  title="Vendor publishing access"
-                  status={vendorKyc.label}
-                  missing={vendorKyc.missing}
-                  successCopy="Vendor KYC is sufficient to publish listings."
-                  blockedCopy="Complete vendor KYC before publishing rental inventory."
-                />
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
-                  {legalUseWarning} Clearly state the item's current condition.
-                  Missing or vague condition details can weaken a vendor's
-                  dispute protection.
-                </div>
-                <Input
-                  name="title"
-                  value={form.title}
+        <div className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+          <Card className="rounded-lg border-slate-200 bg-white p-6">
+            <h2 className="flex items-center gap-2 text-xl font-semibold">
+              <PackagePlus className="size-5 text-teal-600" /> Post a rental
+            </h2>
+            <TrustPanel
+              title="Seller trust"
+              isClear={vendorKyc.canList}
+              status={vendorKyc.canList ? "Verified seller" : "Unverified seller"}
+              body={
+                vendorKyc.canList
+                  ? "Your listings can show the verified badge."
+                  : "You can post rentals, but your listings will not show a verified badge until vendor verification is complete."
+              }
+            />
+            <form onSubmit={handleCreateListing} className="mt-5 space-y-4">
+              <Input
+                name="title"
+                value={form.title}
+                onChange={handleListingChange}
+                placeholder="Listing title"
+                required
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <select
+                  name="category"
+                  value={form.category}
                   onChange={handleListingChange}
-                  placeholder="Listing title"
-                  required
-                />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <select
-                    name="category"
-                    value={form.category}
-                    onChange={handleListingChange}
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    {categories.map((category) => (
-                      <option key={category.name}>{category.name}</option>
-                    ))}
-                  </select>
-                  <select
-                    name="condition"
-                    value={form.condition}
-                    onChange={handleListingChange}
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option>New</option>
-                    <option>Excellent</option>
-                    <option>Good</option>
-                  </select>
-                </div>
-                <Textarea
-                  name="description"
-                  value={form.description}
-                  onChange={handleListingChange}
-                  rows={4}
-                />
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-900">
-                    Condition contract
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">
-                    This record is shown to renters before checkout and saved on
-                    the booking for dispute review.
-                  </p>
-                  <div className="mt-4 space-y-3">
-                    <Textarea
-                      name="knownDefects"
-                      value={form.knownDefects}
-                      onChange={handleListingChange}
-                      rows={3}
-                      placeholder="Known defects, scratches, missing parts, age, or wear"
-                      required
-                    />
-                    <Textarea
-                      name="accessories"
-                      value={form.accessories}
-                      onChange={handleListingChange}
-                      rows={2}
-                      placeholder="Included accessories and parts"
-                      required
-                    />
-                    <Textarea
-                      name="usageLimits"
-                      value={form.usageLimits}
-                      onChange={handleListingChange}
-                      rows={2}
-                      placeholder="Usage limits and handling instructions"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    name="pricePerDay"
-                    type="number"
-                    value={form.pricePerDay}
-                    onChange={handleListingChange}
-                    placeholder="Daily price"
-                    required
-                  />
-                  <Input
-                    name="securityDeposit"
-                    type="number"
-                    value={form.securityDeposit}
-                    onChange={handleListingChange}
-                    placeholder="Security deposit"
-                    required
-                  />
-                  <Input
-                    name="replacementValue"
-                    type="number"
-                    value={form.replacementValue}
-                    onChange={handleListingChange}
-                    placeholder="Replacement value"
-                    required
-                  />
-                  <Input
-                    name="lateReturnFee"
-                    type="number"
-                    value={form.lateReturnFee}
-                    onChange={handleListingChange}
-                    placeholder="Late return fee / day"
-                    required
-                  />
-                  <Input
-                    name="maxRentalDays"
-                    type="number"
-                    value={form.maxRentalDays}
-                    onChange={handleListingChange}
-                    placeholder="Max rental days"
-                    required
-                  />
-                </div>
-                <Input
-                  name="location"
-                  value={form.location}
-                  onChange={handleListingChange}
-                  placeholder="Pickup location"
-                  required
-                />
-                <Input
-                  name="deliveryArea"
-                  value={form.deliveryArea}
-                  onChange={handleListingChange}
-                  placeholder="Delivery coverage"
-                  required
-                />
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700">
-                    Photo URLs, up to 10
-                  </span>
-                  <Textarea
-                    name="imageUrls"
-                    value={form.imageUrls}
-                    onChange={handleListingChange}
-                    rows={3}
-                    placeholder={`Separate image URLs with commas. Production uploads should cap files at ${maxListingImageSizeMb} MB each.`}
-                  />
-                </label>
-                {listingError && (
-                  <div
-                    className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-                    role="alert"
-                  >
-                    {listingError}
-                  </div>
-                )}
-                <Button
-                  disabled={!vendorKyc.canList}
-                  className="w-full bg-teal-500 text-white hover:bg-teal-600"
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  Save listing
-                </Button>
-              </form>
-              {createdListingId && (
-                <div
-                  className="mt-4 rounded-md bg-teal-50 p-4 text-sm text-teal-900"
-                  role="status"
-                  aria-live="polite"
+                  {categories.map((category) => (
+                    <option key={category.name}>{category.name}</option>
+                  ))}
+                </select>
+                <select
+                  name="condition"
+                  value={form.condition}
+                  onChange={handleListingChange}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  Listing created.{" "}
-                  <Link
-                    className="font-semibold underline"
-                    href={`/listings/${createdListingId}`}
-                  >
-                    View it
-                  </Link>
-                  .
+                  <option>New</option>
+                  <option>Excellent</option>
+                  <option>Good</option>
+                </select>
+              </div>
+              <Textarea
+                name="description"
+                value={form.description}
+                onChange={handleListingChange}
+                rows={4}
+                placeholder="What is included and what kind of rental is this best for?"
+                required
+              />
+              <label className="block rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5">
+                <span className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                  <ImagePlus className="size-4 text-teal-600" /> Photos
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-slate-600">
+                  Add clear photos of the actual item and its current condition.
+                </span>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handlePhotos}
+                  className="mt-4 bg-white"
+                  required={photoDataUrls.length === 0}
+                />
+              </label>
+              {photoDataUrls.length > 0 && (
+                <div className="grid grid-cols-3 gap-3">
+                  {photoDataUrls.map((photo, index) => (
+                    <img
+                      key={photo.slice(0, 40) + index}
+                      src={photo}
+                      alt=""
+                      className="h-24 w-full rounded-md object-cover"
+                    />
+                  ))}
                 </div>
               )}
-            </Card>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">
+                  Condition record
+                </p>
+                <div className="mt-4 space-y-3">
+                  <Textarea
+                    name="knownDefects"
+                    value={form.knownDefects}
+                    onChange={handleListingChange}
+                    rows={2}
+                    placeholder="Known defects or wear"
+                    required
+                  />
+                  <Textarea
+                    name="accessories"
+                    value={form.accessories}
+                    onChange={handleListingChange}
+                    rows={2}
+                    placeholder="Included accessories"
+                    required
+                  />
+                  <Textarea
+                    name="usageLimits"
+                    value={form.usageLimits}
+                    onChange={handleListingChange}
+                    rows={2}
+                    placeholder="Usage limits"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  name="pricePerDay"
+                  type="number"
+                  value={form.pricePerDay}
+                  onChange={handleListingChange}
+                  placeholder="Daily price"
+                  required
+                />
+                <Input
+                  name="securityDeposit"
+                  type="number"
+                  value={form.securityDeposit}
+                  onChange={handleListingChange}
+                  placeholder="Security deposit"
+                  required
+                />
+                <Input
+                  name="replacementValue"
+                  type="number"
+                  value={form.replacementValue}
+                  onChange={handleListingChange}
+                  placeholder="Replacement value"
+                  required
+                />
+                <Input
+                  name="lateReturnFee"
+                  type="number"
+                  value={form.lateReturnFee}
+                  onChange={handleListingChange}
+                  placeholder="Late fee"
+                  required
+                />
+                <Input
+                  name="maxRentalDays"
+                  type="number"
+                  value={form.maxRentalDays}
+                  onChange={handleListingChange}
+                  placeholder="Max rental days"
+                  required
+                />
+              </div>
+              <Input
+                name="location"
+                value={form.location}
+                onChange={handleListingChange}
+                placeholder="Pickup location"
+                required
+              />
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-950">
+                {legalUseWarning}
+              </div>
+              {listingError && (
+                <div
+                  className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                  role="alert"
+                >
+                  {listingError}
+                </div>
+              )}
+              <Button
+                disabled={submittingListing}
+                className="w-full bg-teal-500 text-white hover:bg-teal-600"
+              >
+                {submittingListing ? "Saving..." : "Save listing"}
+              </Button>
+            </form>
+            {createdListingId && (
+              <div
+                className="mt-4 rounded-md bg-teal-50 p-4 text-sm text-teal-900"
+                role="status"
+                aria-live="polite"
+              >
+                Listing created.{" "}
+                <Link
+                  className="font-semibold underline"
+                  href={`/listings/${createdListingId}`}
+                >
+                  View it
+                </Link>
+                .
+              </div>
+            )}
+          </Card>
 
+          <div className="space-y-6">
             <Card className="rounded-lg border-slate-200 bg-white p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Vendor listings</h2>
-                {session?.verified && (
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold">My listings</h2>
+                {vendorKyc.canList && (
                   <Badge className="bg-teal-50 text-teal-700">
                     <BadgeCheck /> Verified
                   </Badge>
                 )}
               </div>
               <div className="mt-5 space-y-4">
-                {loadingRecords && (
-                  <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600">
-                    Loading listings...
-                  </p>
-                )}
-                {(vendorListings.length
-                  ? vendorListings
-                  : listings.slice(0, 2)
-                ).map((listing) => (
-                  <ListingRow key={listing.id} listing={listing} />
-                ))}
-              </div>
-            </Card>
-          </div>
-        ) : role === "logistics" ? (
-          <div className="mt-8 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
-            <Card className="rounded-lg border-slate-200 bg-white p-6">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-xl font-semibold">Provider profile</h2>
-                {session?.verified ? (
-                  <Badge className="bg-teal-50 text-teal-700">
-                    <BadgeCheck /> Logistics verified
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">KYC pending</Badge>
-                )}
-              </div>
-              <div className="mt-5 space-y-3 text-sm">
-                <InfoLine
-                  label="Provider"
-                  value={
-                    session?.businessName ||
-                    `${session?.firstName || "Demo"} ${session?.lastName || "Provider"}`
-                  }
-                />
-                <InfoLine
-                  label="Contact phone"
-                  value={session?.phone || "Not set"}
-                />
-                <InfoLine
-                  label="Vehicle"
-                  value={session?.vehicleType || "Pending vehicle"}
-                />
-                <InfoLine
-                  label="Plate number"
-                  value={session?.plateNumber || "Pending plate"}
-                />
-                <InfoLine
-                  label="Coverage"
-                  value={session?.coverageArea || session?.area || "Lagos"}
-                />
-              </div>
-              <KycPanel
-                title="Dispatch access"
-                status={activeKyc.label}
-                missing={activeKyc.missing}
-                successCopy="Provider KYC is sufficient to receive dispatch jobs."
-                blockedCopy="Complete logistics KYC before receiving i.Go-Logistics assignments."
-              />
-              <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
-                Logistics providers must not knowingly transport illegal,
-                restricted, stolen, counterfeit, dangerous, or illicit items.
-                Suspicious dispatches should be rejected or escalated before
-                pickup.
-              </div>
-            </Card>
-
-            <Card className="rounded-lg border-slate-200 bg-white p-6">
-              <h2 className="text-xl font-semibold">
-                Assigned i.Go-Logistics dispatches
-              </h2>
-              <div className="mt-5 space-y-4">
                 {loadingRecords ? (
-                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
-                    <p className="font-semibold">Loading dispatches...</p>
-                  </div>
-                ) : visibleDispatchBookings.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
-                    <p className="font-semibold">No dispatches assigned yet</p>
-                    <p className="mt-2 text-sm text-slate-600">
-                      When a renter chooses i.Go-Logistics, assigned pickup and
-                      delivery jobs will appear here.
-                    </p>
-                  </div>
+                  <EmptyState title="Loading listings..." />
+                ) : myListings.length === 0 ? (
+                  <EmptyState title="No listings yet" />
                 ) : (
-                  visibleDispatchBookings.map((booking) => (
-                    <Link key={booking.id} href={`/bookings/${booking.id}`}>
-                      <div className="rounded-lg border border-slate-200 p-4 transition hover:border-teal-300">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p className="font-semibold">{booking.title}</p>
-                          <Badge className="bg-teal-50 text-teal-700">
-                            {booking.dispatch?.status.replaceAll("_", " ")}
-                          </Badge>
-                        </div>
-                        <div className="mt-3 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
-                          <InfoLine
-                            label="Pickup"
-                            value={booking.dispatch?.pickupArea || "Pending"}
-                          />
-                          <InfoLine
-                            label="Delivery"
-                            value={booking.dispatch?.deliveryArea || "Pending"}
-                          />
-                          <InfoLine
-                            label="Vendor"
-                            value={
-                              booking.dispatch?.vendorContact.name ||
-                              booking.vendorName
-                            }
-                          />
-                          <InfoLine
-                            label="Renter"
-                            value={
-                              booking.dispatch?.renterContact.name ||
-                              booking.renterName
-                            }
-                          />
-                        </div>
-                      </div>
-                    </Link>
+                  myListings.map((listing) => (
+                    <ListingRow key={listing.id} listing={listing} />
                   ))
                 )}
               </div>
             </Card>
-          </div>
-        ) : (
-          <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_0.85fr]">
+
             <Card className="rounded-lg border-slate-200 bg-white p-6">
               <h2 className="text-xl font-semibold">My bookings</h2>
-              <KycPanel
+              <TrustPanel
                 title="Booking access"
-                status={activeKyc.label}
-                missing={activeKyc.missing}
-                successCopy="Renter KYC is sufficient for standard bookings."
-                blockedCopy="Complete phone and NIN verification before booking rentals."
+                isClear={renterKyc.canBook}
+                status={renterKyc.label}
+                body={
+                  renterKyc.canBook
+                    ? "You can book standard rentals."
+                    : "Complete phone and NIN verification before checkout."
+                }
               />
-              <div className="mt-5 space-y-4">
-                {loadingRecords ? (
-                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
-                    <p className="font-semibold">Loading bookings...</p>
-                  </div>
-                ) : bookings.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-slate-300 p-8 text-center">
-                    <p className="font-semibold">No bookings yet</p>
-                    <p className="mt-2 text-sm text-slate-600">
-                      Search for Professional Sound System to complete the
-                      success path.
-                    </p>
-                    <Button
-                      asChild
-                      className="mt-5 bg-[#071b2f] text-white hover:bg-[#0b2b49]"
-                    >
-                      <Link href="/browse">Browse rentals</Link>
-                    </Button>
-                  </div>
-                ) : (
-                  bookings.map((booking) => (
-                    <Link key={booking.id} href={`/bookings/${booking.id}`}>
-                      <div className="rounded-lg border border-slate-200 p-4 transition hover:border-teal-300">
-                        <div className="flex items-center justify-between gap-4">
-                          <p className="font-semibold">{booking.title}</p>
-                          <Badge className="bg-teal-50 text-teal-700">
-                            {booking.escrowStatus.replaceAll("_", " ")}
-                          </Badge>
-                        </div>
-                        <p className="mt-2 text-sm text-slate-600">
-                          {formatNaira(booking.totalPaid)} - {booking.days} days
-                        </p>
-                      </div>
-                    </Link>
-                  ))
-                )}
-              </div>
+              <RecordList
+                bookings={renterBookings}
+                emptyTitle="No bookings yet"
+                loading={loadingRecords}
+              />
             </Card>
 
             <Card className="rounded-lg border-slate-200 bg-white p-6">
-              <h2 className="text-xl font-semibold">Recommended rentals</h2>
-              <div className="mt-5 space-y-4">
-                {listings.slice(0, 3).map((listing) => (
-                  <ListingRow key={listing.id} listing={listing} compact />
-                ))}
-              </div>
+              <h2 className="text-xl font-semibold">Booking requests</h2>
+              <RecordList
+                bookings={vendorBookings}
+                emptyTitle="No requests yet"
+                loading={loadingRecords}
+              />
             </Card>
+
+            {session?.role === "logistics" && (
+              <Card className="rounded-lg border-slate-200 bg-white p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="text-xl font-semibold">Dispatch work</h2>
+                  <Truck className="size-5 text-teal-600" />
+                </div>
+                <TrustPanel
+                  title="Logistics access"
+                  isClear={logisticsKyc.canDispatch}
+                  status={
+                    logisticsKyc.canDispatch
+                      ? "Verified logistics"
+                      : "Verification required"
+                  }
+                  body={
+                    logisticsKyc.canDispatch
+                      ? "You can receive dispatch assignments."
+                      : "Logistics providers must be verified before operating."
+                  }
+                />
+                <RecordList
+                  bookings={dispatchBookings}
+                  emptyTitle="No dispatches assigned"
+                  loading={loadingRecords}
+                />
+              </Card>
+            )}
           </div>
-        )}
+        </div>
       </section>
     </main>
   );
@@ -732,66 +590,17 @@ function Metric({
   );
 }
 
-function ListingRow({
-  listing,
-  compact,
-}: {
-  listing: DemoListing;
-  compact?: boolean;
-}) {
-  return (
-    <Link href={`/listings/${listing.id}`} className="block">
-      <div className="grid grid-cols-[86px_1fr] gap-4 rounded-lg border border-slate-200 p-3 transition hover:border-teal-300">
-        <img
-          src={listing.images[0]}
-          alt=""
-          className="h-20 w-full rounded-md object-cover"
-        />
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold">{listing.title}</p>
-            {listing.vendorVerified && (
-              <Badge className="bg-teal-50 text-teal-700">Verified</Badge>
-            )}
-          </div>
-          <p className="mt-1 text-sm text-slate-600">
-            {formatNaira(listing.pricePerDay)} / day
-          </p>
-          {!compact && (
-            <p className="mt-1 text-xs text-slate-500">
-              Deposit {formatNaira(listing.securityDeposit)}
-            </p>
-          )}
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-4 rounded-md bg-slate-50 p-3">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-right font-semibold text-slate-900">{value}</span>
-    </div>
-  );
-}
-
-function KycPanel({
+function TrustPanel({
   title,
+  isClear,
   status,
-  missing,
-  successCopy,
-  blockedCopy,
+  body,
 }: {
   title: string;
+  isClear: boolean;
   status: string;
-  missing: string[];
-  successCopy: string;
-  blockedCopy: string;
+  body: string;
 }) {
-  const isClear = missing.length === 0;
-
   return (
     <div
       className={`mt-4 rounded-lg border p-4 ${isClear ? "border-teal-200 bg-teal-50" : "border-amber-200 bg-amber-50"}`}
@@ -824,15 +633,76 @@ function KycPanel({
           <p
             className={`mt-2 text-sm leading-6 ${isClear ? "text-teal-900" : "text-amber-950"}`}
           >
-            {isClear ? successCopy : blockedCopy}
+            {body}
           </p>
-          {!isClear && (
-            <p className="mt-1 text-xs text-amber-900">
-              Missing: {missing.join(", ")}
-            </p>
-          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ListingRow({ listing }: { listing: DemoListing }) {
+  return (
+    <Link href={`/listings/${listing.id}`} className="block">
+      <div className="grid grid-cols-[86px_1fr] gap-4 rounded-lg border border-slate-200 p-3 transition hover:border-teal-300">
+        <img
+          src={listing.images[0]}
+          alt=""
+          className="h-20 w-full rounded-md object-cover"
+        />
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold">{listing.title}</p>
+            {listing.vendorVerified && (
+              <Badge className="bg-teal-50 text-teal-700">Verified</Badge>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-slate-600">
+            {formatNaira(listing.pricePerDay)} / day
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function RecordList({
+  bookings,
+  emptyTitle,
+  loading,
+}: {
+  bookings: DemoBooking[];
+  emptyTitle: string;
+  loading: boolean;
+}) {
+  if (loading) return <EmptyState title="Loading records..." />;
+  if (bookings.length === 0) return <EmptyState title={emptyTitle} />;
+
+  return (
+    <div className="mt-5 space-y-4">
+      {bookings.map((booking) => (
+        <Link key={booking.id} href={`/bookings/${booking.id}`}>
+          <div className="rounded-lg border border-slate-200 p-4 transition hover:border-teal-300">
+            <div className="flex items-center justify-between gap-4">
+              <p className="font-semibold">{booking.title}</p>
+              <Badge className="bg-teal-50 text-teal-700">
+                {booking.escrowStatus.replaceAll("_", " ")}
+              </Badge>
+            </div>
+            <p className="mt-2 text-sm text-slate-600">
+              {formatNaira(booking.totalPaid)} - {booking.days} days
+            </p>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ title }: { title: string }) {
+  return (
+    <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-600">
+      {title}
     </div>
   );
 }

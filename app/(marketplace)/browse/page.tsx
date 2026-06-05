@@ -75,30 +75,10 @@ export default function BrowseListingsPage() {
 
   return (
     <main className="min-h-screen bg-[#f7fbfb]">
-      <header className="border-b bg-[#071b2f] text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="text-lg font-semibold">
-            i.Go-rent
-          </Link>
-          <div className="flex gap-2">
-            <Button
-              asChild
-              variant="ghost"
-              className="text-white hover:bg-white/10 hover:text-white"
-            >
-              <Link href="/dashboard">Dashboard</Link>
-            </Button>
-            <Button
-              asChild
-              className="bg-teal-400 text-[#071b2f] hover:bg-teal-300"
-            >
-              <Link href="/signup?role=vendor">List item</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
-
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <Link href="/" className="text-sm font-semibold text-[#071b2f]">
+          i.Go-rent
+        </Link>
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
           <div>
             <Badge className="mb-4 bg-teal-50 text-teal-700">

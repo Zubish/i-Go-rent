@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   formatNaira,
-  maxListingImages,
   type DemoListing,
 } from "@/lib/demo-marketplace";
 
@@ -75,24 +74,14 @@ export default function ListingDetailPage() {
 
   return (
     <main className="min-h-screen bg-[#f7fbfb]">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      <section className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
+        <div>
           <Link
             href="/browse"
-            className="flex items-center gap-2 text-sm font-medium text-slate-700"
+            className="mb-5 inline-flex items-center gap-2 text-sm font-medium text-slate-700"
           >
             <ArrowLeft className="size-4" /> Marketplace
           </Link>
-          <Button asChild className="bg-teal-500 text-white hover:bg-teal-600">
-            <Link href={`/bookings/create?listing=${listing.id}`}>
-              Book now
-            </Link>
-          </Button>
-        </div>
-      </header>
-
-      <section className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
-        <div>
           <div className="grid gap-3 md:grid-cols-[1fr_0.42fr]">
             <img
               src={listing.images[0]}
@@ -115,7 +104,7 @@ export default function ListingDetailPage() {
           </div>
           {listing.images.length > 3 && (
             <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5">
-              {listing.images.slice(3, maxListingImages).map((image, index) => (
+              {listing.images.slice(3).map((image, index) => (
                 <img
                   key={image + index}
                   src={image}
@@ -141,10 +130,6 @@ export default function ListingDetailPage() {
             </h1>
             <p className="mt-4 leading-7 text-slate-600">
               {listing.description}
-            </p>
-            <p className="mt-3 text-sm text-slate-500">
-              {listing.images.slice(0, maxListingImages).length} of{" "}
-              {maxListingImages} allowed listing photos shown.
             </p>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-3">

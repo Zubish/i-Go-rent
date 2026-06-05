@@ -3,7 +3,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import {
   categories,
-  getKycStatus,
   maxListingImages,
   seedListings,
 } from "@/lib/demo-marketplace";
@@ -16,6 +15,10 @@ import {
 } from "@/lib/marketplace-data";
 
 function splitImageUrls(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean).slice(0, maxListingImages);
+  }
+
   return String(value || "")
     .split(",")
     .map((item) => item.trim())
@@ -29,7 +32,9 @@ function cleanText(value: unknown, maxLength = 800) {
     .slice(0, maxLength);
 }
 
-function isHttpUrl(value: string) {
+function isValidImageSource(value: string) {
+  if (value.startsWith("data:image/")) return true;
+
   try {
     const url = new URL(value);
     return url.protocol === "https:" || url.protocol === "http:";
@@ -113,14 +118,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const vendor = await getUserForPolicy(authUser.userId);
-    const vendorKyc = getKycStatus(vendor, "vendor");
-
-    if (!vendorKyc.canList) {
-      return NextResponse.json(
-        { error: `Vendor KYC incomplete: ${vendorKyc.missing.join(", ")}` },
-        { status: 403 },
-      );
-    }
 
     const input = await request.json();
     const title = cleanText(input.title, 120);
@@ -131,7 +128,7 @@ export async function POST(request: NextRequest) {
     const usageLimits = cleanText(input.usageLimits, 800);
     const category = cleanText(input.category, 40);
     const condition = cleanText(input.condition, 40);
-    const images = splitImageUrls(input.imageUrls).filter(isHttpUrl);
+    const images = splitImageUrls(input.imageUrls).filter(isValidImageSource);
     const allowedCategories = new Set<string>(
       categories.map((item) => item.name),
     );
@@ -189,7 +186,7 @@ export async function POST(request: NextRequest) {
 
     if (!images.length) {
       return NextResponse.json(
-        { error: "Add at least one valid http or https photo URL" },
+        { error: "Add at least one item photo" },
         { status: 400 },
       );
     }

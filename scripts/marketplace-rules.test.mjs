@@ -7,6 +7,7 @@ const read = (file) => readFileSync(join(root, file), "utf8");
 
 const packageJson = JSON.parse(read("package.json"));
 const nextConfig = read("next.config.mjs");
+const proxy = read("proxy.ts");
 const healthRoute = read("app/api/health/route.ts");
 const health = read("lib/marketplace-health.ts");
 const listingsRoute = read("app/api/listings/route.ts");
@@ -64,6 +65,16 @@ assertAbsent(
   /ignoreBuildErrors:\s*true/,
   "Next.js builds must not ignore TypeScript errors.",
 );
+assertPresent(
+  proxy,
+  /matcher:\s*\["\/dashboard\/:path\*", "\/bookings\/:path\*", "\/payments\/:path\*"\]/,
+  "Protected app routes should be guarded before rendering signed-out screens.",
+);
+assertPresent(
+  proxy,
+  /request\.cookies\.get\("auth-token"\)/,
+  "Route guard should check for the production auth cookie.",
+);
 
 assertPresent(
   healthRoute,
@@ -98,8 +109,13 @@ assertPresent(
 );
 assertPresent(
   listingsRoute,
+  /Sign in before creating a listing/,
+  "Listing creation should require a signed-in account.",
+);
+assertAbsent(
+  listingsRoute,
   /Vendor KYC incomplete/,
-  "Listing creation should remain gated by vendor KYC.",
+  "Regular signed-in users should be able to post unverified listings.",
 );
 assertPresent(
   listingsRoute,
@@ -108,8 +124,18 @@ assertPresent(
 );
 assertPresent(
   listingsRoute,
-  /Add at least one valid http or https photo URL/,
-  "Listing creation should require at least one valid photo URL.",
+  /data:image\//,
+  "Listing creation should accept uploaded image data for tests and previews.",
+);
+assertPresent(
+  listingsRoute,
+  /Array\.isArray\(value\)/,
+  "Uploaded image data should be accepted as an array so data URLs are not split on commas.",
+);
+assertPresent(
+  listingsRoute,
+  /Add at least one item photo/,
+  "Listing creation should require item photos without exposing URL-based implementation copy.",
 );
 assertPresent(
   listingDetailRoute,
@@ -195,6 +221,16 @@ assertPresent(
   dashboardPage,
   /listingError[\s\S]*role="alert"/,
   "Vendor listing errors should be announced as accessible alerts.",
+);
+assertAbsent(
+  dashboardPage,
+  /dashboardRoles|setRole\(|role=\$\{role\}/,
+  "Dashboard should not expose renter/vendor/logistics account switching.",
+);
+assertPresent(
+  dashboardPage,
+  /type="file"[\s\S]*accept="image\/\*"/,
+  "Dashboard listing creation should use photo upload instead of pasted URLs.",
 );
 
 assertPresent(

@@ -10,14 +10,9 @@ import { signIn } from "@/app/actions/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { saveDemoSession } from "@/lib/demo-client-store";
-import { getRoleLabel, type UserRole } from "@/lib/demo-marketplace";
-
-const roles: UserRole[] = ["renter", "vendor", "logistics"];
 
 export default function SignInPage() {
   const router = useRouter();
-  const [role, setRole] = useState<UserRole>("renter");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -36,14 +31,8 @@ export default function SignInPage() {
       return;
     }
 
-    saveDemoSession(response.user);
-    const nextRole =
-      response.user.role === "vendor" || response.user.role === "logistics"
-        ? response.user.role
-        : role;
-    router.push(
-      nextRole === "renter" ? "/browse" : `/dashboard?role=${nextRole}`,
-    );
+    const nextPath = new URLSearchParams(window.location.search).get("next");
+    router.push(nextPath || "/dashboard");
   };
 
   return (
@@ -56,8 +45,8 @@ export default function SignInPage() {
           Sign in to i.Go-rent
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Use your production email and password. Your role determines the
-          workspace you enter.
+          Use your email and password to manage rentals, listings, and booking
+          updates from one account.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -75,20 +64,6 @@ export default function SignInPage() {
             placeholder="Password"
             required
           />
-          <div className="grid grid-cols-3 rounded-lg bg-slate-100 p-1">
-            {roles.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setRole(value)}
-                className={`rounded-md px-4 py-2 text-sm font-medium ${
-                  role === value ? "bg-[#071b2f] text-white" : "text-slate-600"
-                }`}
-              >
-                {value === "logistics" ? "Logistics" : getRoleLabel(value)}
-              </button>
-            ))}
-          </div>
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {error}

@@ -23,7 +23,6 @@ import {
 } from "@/lib/demo-marketplace";
 import {
   getAllLogisticsProviders,
-  getDemoSession,
 } from "@/lib/demo-client-store";
 
 export default function CreateBookingForm() {
@@ -76,25 +75,21 @@ export default function CreateBookingForm() {
     }
 
     async function hydrateSession() {
-      const localSession = getDemoSession();
-      let nextSession = localSession;
-
       try {
         const response = await fetch("/api/auth/session", {
           cache: "no-store",
         });
         if (response.ok) {
           const data = await response.json();
-          if (data.user) nextSession = data.user;
+          const nextSession = data.user || null;
+          setSession(nextSession);
+          if (nextSession) {
+            setRenterName(`${nextSession.firstName} ${nextSession.lastName}`);
+            setRenterPhone(nextSession.phone);
+          }
         }
       } catch {
-        nextSession = localSession;
-      }
-
-      setSession(nextSession);
-      if (nextSession) {
-        setRenterName(`${nextSession.firstName} ${nextSession.lastName}`);
-        setRenterPhone(nextSession.phone);
+        setSession(null);
       }
     }
 

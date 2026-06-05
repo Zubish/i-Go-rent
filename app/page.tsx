@@ -50,13 +50,10 @@ export default async function Home() {
               Browse
             </Link>
             <Link href="/dashboard" className="hover:text-white">
-              Dashboard
-            </Link>
-            <Link href="/signup?role=vendor" className="hover:text-white">
-              Become a vendor
+              Post a rental
             </Link>
             <Link href="/signup?role=logistics" className="hover:text-white">
-              Logistics
+              Offer logistics
             </Link>
           </nav>
           <div className="flex items-center gap-2">
@@ -108,7 +105,7 @@ export default async function Home() {
                 variant="outline"
                 className="border-white/20 bg-transparent text-white hover:bg-white/10"
               >
-                <Link href="/signup?role=vendor">List an item</Link>
+                <Link href="/dashboard">List an item</Link>
               </Button>
               <Button
                 asChild

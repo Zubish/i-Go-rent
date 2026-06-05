@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { saveDemoSession } from "@/lib/demo-client-store";
 import {
   getRoleLabel,
   lagosAreas,
@@ -98,8 +97,7 @@ export default function SignUpPage() {
       return;
     }
 
-    saveDemoSession(response.user);
-    router.push(role === "renter" ? "/browse" : `/dashboard?role=${role}`);
+    router.push("/dashboard");
   };
 
   return (
@@ -265,7 +263,7 @@ export default function SignUpPage() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-teal-800">
-                  Add both values to show a verified vendor badge in demo mode.
+              Add both values to show a verified vendor badge.
                 </p>
               </div>
             )}
@@ -356,7 +354,7 @@ export default function SignUpPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-600">
-            Already have a demo profile?{" "}
+            Already have an account?{" "}
             <Link href="/signin" className="font-medium text-teal-700">
               Sign in
             </Link>
