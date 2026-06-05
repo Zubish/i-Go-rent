@@ -362,11 +362,11 @@ export default function CreateBookingForm() {
                 />
                 <DispatchPreview
                   label="Contact"
-                  value={`${suggestedProvider.contactName} · ${suggestedProvider.phone}`}
+                  value={`${suggestedProvider.contactName} - ${suggestedProvider.phone}`}
                 />
                 <DispatchPreview
                   label="Vehicle"
-                  value={`${suggestedProvider.vehicleType} · ${suggestedProvider.plateNumber}`}
+                  value={`${suggestedProvider.vehicleType} - ${suggestedProvider.plateNumber}`}
                 />
                 <DispatchPreview
                   label="Coverage"
@@ -524,7 +524,10 @@ export default function CreateBookingForm() {
           )}
 
           {error && (
-            <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <div
+              className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+              role="alert"
+            >
               {error}
             </div>
           )}

@@ -17,7 +17,11 @@ export async function GET(
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ listing: fallbackListing });
+    return NextResponse.json({
+      listing: fallbackListing,
+      source: listing ? "database" : "seeded_fallback",
+      degraded: !listing,
+    });
   } catch (error) {
     console.error("Listing lookup failed:", error);
     const { id } = await params;
@@ -27,6 +31,11 @@ export async function GET(
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ listing, degraded: true });
+    return NextResponse.json({
+      listing,
+      degraded: true,
+      source: "seeded_fallback",
+      issue: "Database listing lookup is unavailable; showing seed listing.",
+    });
   }
 }

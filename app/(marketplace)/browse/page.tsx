@@ -29,6 +29,7 @@ export default function BrowseListingsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
+  const [marketplaceNotice, setMarketplaceNotice] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -41,8 +42,14 @@ export default function BrowseListingsPage() {
         const response = await fetch("/api/listings", { cache: "no-store" });
         const data = await response.json();
         setListings(Array.isArray(data.listings) ? data.listings : []);
+        setMarketplaceNotice(
+          data.degraded || data.source === "seeded_fallback"
+            ? "Marketplace is showing curated seed listings while the production database is being restored."
+            : "",
+        );
       } catch {
         setListings([]);
+        setMarketplaceNotice("Marketplace listings could not be loaded.");
       } finally {
         setLoading(false);
       }
@@ -167,6 +174,16 @@ export default function BrowseListingsPage() {
             </div>
           </Card>
         </div>
+
+        {marketplaceNotice && (
+          <div
+            className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
+            role="status"
+            aria-live="polite"
+          >
+            {marketplaceNotice}
+          </div>
+        )}
 
         <div className="mt-8 flex items-center justify-between">
           <p className="text-sm text-slate-600">

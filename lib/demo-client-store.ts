@@ -279,6 +279,10 @@ function buildDispatch(input: {
   provider: DemoLogisticsProvider;
 }): DemoDispatch {
   const reference = `DSP-${Date.now().toString().slice(-6)}`;
+  const randomOffset =
+    typeof crypto !== "undefined" && "getRandomValues" in crypto
+      ? crypto.getRandomValues(new Uint32Array(1))[0] % 9000
+      : Math.floor(Math.random() * 9000);
 
   return {
     id: `dispatch-${Date.now()}`,
@@ -287,8 +291,8 @@ function buildDispatch(input: {
     dispatchReference: reference,
     pickupArea: input.listing.vendorArea,
     deliveryArea: input.listing.deliveryArea,
-    pickupWindow: `${input.startDate} · 9:00 AM - 12:00 PM`,
-    deliveryWindow: `${input.startDate} · 12:00 PM - 4:00 PM`,
+    pickupWindow: `${input.startDate} - 9:00 AM - 12:00 PM`,
+    deliveryWindow: `${input.startDate} - 12:00 PM - 4:00 PM`,
     dispatchFee: 6500,
     vendorContact: {
       name: input.listing.vendorName,
@@ -298,7 +302,7 @@ function buildDispatch(input: {
       name: input.renterName,
       phone: input.renterPhone || "0800 RENTER",
     },
-    handoverCode: `IG-${Math.floor(1000 + Math.random() * 9000)}`,
+    handoverCode: `IG-${1000 + randomOffset}`,
     instructions:
       "Provider details are shared with both parties after escrow funding. Vendor should only release the item after recording condition proof and confirming the handover code.",
     assignedAt: new Date().toISOString(),
@@ -347,7 +351,7 @@ export function createDemoBooking(input: {
     deliveryType: input.deliveryType,
     deliveryFee: totals.deliveryFee,
     totalPaid: totals.totalPaid,
-    escrowStatus: "held",
+    escrowStatus: "payment_pending",
     dispatch:
       provider && input.deliveryType === "igo-logistics"
         ? buildDispatch({

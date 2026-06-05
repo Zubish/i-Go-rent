@@ -6,6 +6,7 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
+    "test": "node scripts/marketplace-rules.test.mjs",
     "start": "next start"
   },
   "dependencies": {

@@ -302,7 +302,7 @@ export default async function Home() {
             [
               CircleDollarSign,
               "Pay into escrow",
-              "Rental fee, deposit, and optional logistics are recorded as held.",
+              "Rental fee, deposit, and optional logistics move to held only after payment is verified.",
             ],
             [
               ShieldCheck,

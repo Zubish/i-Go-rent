@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       area: filters.area || undefined,
     });
 
-    return NextResponse.json({ listings });
+    return NextResponse.json({ listings, source: "database" });
   } catch (error) {
     console.error("Listing fetch failed:", error);
     const searchParams = request.nextUrl.searchParams;
@@ -71,6 +71,9 @@ export async function GET(request: NextRequest) {
         area: searchParams.get("area"),
       }),
       degraded: true,
+      source: "seeded_fallback",
+      issue:
+        "Database listings are unavailable; showing curated seed listings.",
     });
   }
 }

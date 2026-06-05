@@ -68,6 +68,7 @@ export default function DashboardPage() {
   const [createdListingId, setCreatedListingId] = useState("");
   const [listingError, setListingError] = useState("");
   const [loadingRecords, setLoadingRecords] = useState(true);
+  const [marketplaceNotice, setMarketplaceNotice] = useState("");
 
   useEffect(() => {
     async function hydrateSession() {
@@ -114,12 +115,18 @@ export default function DashboardPage() {
         setListings(
           Array.isArray(listingData.listings) ? listingData.listings : [],
         );
+        setMarketplaceNotice(
+          listingData.degraded || listingData.source === "seeded_fallback"
+            ? "Marketplace is showing curated seed listings while the production database is being restored."
+            : "",
+        );
         setBookings(
           Array.isArray(bookingData.bookings) ? bookingData.bookings : [],
         );
       } catch {
         setListings([]);
         setBookings([]);
+        setMarketplaceNotice("Marketplace records could not be loaded.");
       } finally {
         setLoadingRecords(false);
       }
@@ -305,6 +312,16 @@ export default function DashboardPage() {
             }
           />
         </div>
+
+        {marketplaceNotice && (
+          <div
+            className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
+            role="status"
+            aria-live="polite"
+          >
+            {marketplaceNotice}
+          </div>
+        )}
 
         {role === "vendor" ? (
           <div className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -666,7 +683,7 @@ export default function DashboardPage() {
                           </Badge>
                         </div>
                         <p className="mt-2 text-sm text-slate-600">
-                          {formatNaira(booking.totalPaid)} · {booking.days} days
+                          {formatNaira(booking.totalPaid)} - {booking.days} days
                         </p>
                       </div>
                     </Link>

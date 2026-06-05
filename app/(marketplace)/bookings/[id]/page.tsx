@@ -176,11 +176,11 @@ export default function BookingDetailPage() {
                           />
                           <Info
                             label="Provider contact"
-                            value={`${booking.dispatch.provider.contactName} · ${booking.dispatch.provider.phone}`}
+                            value={`${booking.dispatch.provider.contactName} - ${booking.dispatch.provider.phone}`}
                           />
                           <Info
                             label="Vehicle"
-                            value={`${booking.dispatch.provider.vehicleType} · ${booking.dispatch.provider.plateNumber}`}
+                            value={`${booking.dispatch.provider.vehicleType} - ${booking.dispatch.provider.plateNumber}`}
                           />
                           <Info
                             label="Handover code"
@@ -199,9 +199,9 @@ export default function BookingDetailPage() {
                           <Phone className="mt-0.5 size-4" />
                           <p>
                             Vendor contact:{" "}
-                            {booking.dispatch.vendorContact.name} ·{" "}
+                            {booking.dispatch.vendorContact.name} -{" "}
                             {booking.dispatch.vendorContact.phone}. Renter
-                            contact: {booking.dispatch.renterContact.name} ·{" "}
+                            contact: {booking.dispatch.renterContact.name} -{" "}
                             {booking.dispatch.renterContact.phone}.
                           </p>
                         </div>
