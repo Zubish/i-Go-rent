@@ -16,6 +16,7 @@ const bookingPage = read("app/(marketplace)/bookings/[id]/page.tsx");
 const browsePage = read("app/(marketplace)/browse/page.tsx");
 const dashboardPage = read("app/(dashboard)/dashboard/page.tsx");
 const demoStore = read("lib/demo-client-store.ts");
+const productionMigration = read("scripts/02-production-auth-and-marketplace.sql");
 
 function assertAbsent(source, pattern, message) {
   assert.equal(pattern.test(source), false, message);
@@ -29,6 +30,21 @@ assert.equal(
   packageJson.scripts.test,
   "node scripts/marketplace-rules.test.mjs",
   "Marketplace regression tests should be runnable with npm test.",
+);
+assert.equal(
+  packageJson.scripts["db:seed"],
+  "node scripts/seed-marketplace.mjs",
+  "Database seed script should be available as npm run db:seed.",
+);
+assert.equal(
+  packageJson.scripts["smoke:production"],
+  "node scripts/smoke-production.mjs",
+  "Production smoke checks should be available as npm run smoke:production.",
+);
+assert.equal(
+  packageJson.scripts["smoke:production-booking"],
+  "node scripts/smoke-production-booking.mjs",
+  "Authenticated booking smoke checks should be available as npm run smoke:production-booking.",
 );
 
 assertAbsent(
@@ -73,6 +89,21 @@ assertPresent(
   bookingsRoute,
   /total_paid, status[\s\S]*0, 'pending'/,
   "Bookings should start payment pending instead of pretending funds are held.",
+);
+assertPresent(
+  bookingsRoute,
+  /status IN \('pending', 'confirmed', 'active', 'disputed'\)[\s\S]*start_date <= \$3::date[\s\S]*end_date >= \$2::date/,
+  "Bookings should block overlapping active reservations before checkout.",
+);
+assertPresent(
+  bookingsRoute,
+  /status:\s*409/,
+  "Overlapping booking attempts should return an HTTP 409 conflict.",
+);
+assertPresent(
+  productionMigration,
+  /CREATE EXTENSION IF NOT EXISTS btree_gist[\s\S]*bookings_no_active_overlap[\s\S]*EXCLUDE USING gist/,
+  "Database migration should enforce active booking date overlap prevention.",
 );
 assertAbsent(
   bookingsRoute,

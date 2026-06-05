@@ -45,6 +45,7 @@ export default function CreateBookingForm() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const todayInput = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   useEffect(() => {
     let mounted = true;
@@ -113,6 +114,9 @@ export default function CreateBookingForm() {
   const renterKyc = getKycStatus(session, "renter");
   const exceedsMaxDays = Boolean(
     listing && totals && totals.days > listing.maxRentalDays,
+  );
+  const invalidDateRange = Boolean(
+    startDate && endDate && totals && totals.days <= 0,
   );
   const vendorReady = Boolean(listing?.vendorVerified);
   const canBook = Boolean(
@@ -204,7 +208,7 @@ export default function CreateBookingForm() {
                 {listing.title}
               </h2>
               <p className="mt-2 text-sm text-slate-600">
-                {listing.vendorName} · {listing.location}
+                {listing.vendorName} - {listing.location}
               </p>
             </div>
             <img
@@ -287,6 +291,8 @@ export default function CreateBookingForm() {
                 value={startDate}
                 onChange={handleStartDate}
                 onInput={handleStartDate}
+                min={todayInput}
+                aria-invalid={invalidDateRange}
                 required
               />
             </label>
@@ -299,10 +305,17 @@ export default function CreateBookingForm() {
                 value={endDate}
                 onChange={handleEndDate}
                 onInput={handleEndDate}
+                min={startDate || todayInput}
+                aria-invalid={invalidDateRange}
                 required
               />
             </label>
           </div>
+          {invalidDateRange && (
+            <p className="mt-3 text-sm font-medium text-red-600" role="alert">
+              End date must be after the start date.
+            </p>
+          )}
         </Card>
 
         <Card className="rounded-lg border-slate-200 bg-white p-6">

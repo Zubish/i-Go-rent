@@ -100,6 +100,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const overlappingBooking = await sql(
+      `SELECT id
+       FROM bookings
+       WHERE listing_id = $1
+         AND status IN ('pending', 'confirmed', 'active', 'disputed')
+         AND start_date <= $3::date
+         AND end_date >= $2::date
+       LIMIT 1`,
+      [dbListing.row.id, input.startDate, input.endDate],
+    );
+
+    if (overlappingBooking.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "This item is already reserved for those dates. Choose a different date range.",
+        },
+        { status: 409 },
+      );
+    }
+
     const conditionSnapshot = conditionSnapshotForListing(dbListing.listing);
     const deliveryType =
       input.deliveryType === "igo-logistics" ? "igo_logistics" : "self_pickup";

@@ -2,6 +2,7 @@
 -- Safe to rerun: all new columns/tables/indexes are guarded where PostgreSQL supports it.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 DO $$
 BEGIN
@@ -215,6 +216,23 @@ ALTER TABLE bookings ADD COLUMN IF NOT EXISTS legal_use_accepted BOOLEAN DEFAULT
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS condition_acknowledged BOOLEAN DEFAULT FALSE;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS condition_snapshot JSONB;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'bookings_no_active_overlap'
+  ) THEN
+    ALTER TABLE bookings
+      ADD CONSTRAINT bookings_no_active_overlap
+      EXCLUDE USING gist (
+        listing_id WITH =,
+        daterange(start_date, end_date, '[]') WITH &&
+      )
+      WHERE (status IN ('pending', 'confirmed', 'active', 'disputed'));
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS escrow_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
@@ -261,6 +279,7 @@ CREATE TABLE IF NOT EXISTS dispatch_assignments (
 
 CREATE INDEX IF NOT EXISTS idx_vendor_profiles_user_id ON vendor_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_logistics_profiles_user_id ON logistics_provider_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_listing_dates_status ON bookings(listing_id, start_date, end_date, status);
 CREATE INDEX IF NOT EXISTS idx_dispatch_booking_id ON dispatch_assignments(booking_id);
 CREATE INDEX IF NOT EXISTS idx_dispatch_provider_id ON dispatch_assignments(logistics_provider_id);
 CREATE INDEX IF NOT EXISTS idx_dispatch_status ON dispatch_assignments(dispatch_status);
