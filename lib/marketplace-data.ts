@@ -1,4 +1,5 @@
-import { sql } from "@/lib/db"
+import { sql } from "@/lib/db";
+import { randomInt } from "node:crypto";
 import {
   calculateDays,
   logisticsFee,
@@ -10,45 +11,52 @@ import {
   type DemoListing,
   type DemoLogisticsProvider,
   type DemoUser,
-} from "@/lib/demo-marketplace"
+} from "@/lib/demo-marketplace";
 
-const fallbackImage = "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1200&q=80"
+const fallbackImage =
+  "https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1200&q=80";
 
 function toNumber(value: unknown, fallback = 0) {
-  const next = Number(value)
-  return Number.isFinite(next) ? next : fallback
+  const next = Number(value);
+  return Number.isFinite(next) ? next : fallback;
 }
 
 function normalizeCondition(value: unknown): DemoListing["condition"] {
-  const condition = String(value || "Good").toLowerCase()
-  if (condition === "new") return "New"
-  if (condition === "excellent") return "Excellent"
-  return "Good"
+  const condition = String(value || "Good").toLowerCase();
+  if (condition === "new") return "New";
+  if (condition === "excellent") return "Excellent";
+  return "Good";
 }
 
 function normalizeCategory(value: unknown): DemoListing["category"] {
-  if (value === "Transport") return "Transport"
-  if (value === "Gear") return "Gear"
-  return "Events"
+  if (value === "Transport") return "Transport";
+  if (value === "Gear") return "Gear";
+  return "Events";
 }
 
 function splitIncluded(value: unknown) {
-  return String(value || "Vendor confirmed item, Pickup checklist, Escrow-backed deposit")
+  return String(
+    value || "Vendor confirmed item, Pickup checklist, Escrow-backed deposit",
+  )
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
-    .slice(0, 8)
+    .slice(0, 8);
 }
 
 function imageList(value: unknown) {
-  const images = Array.isArray(value) ? value.filter(Boolean).map(String) : []
-  return (images.length ? images : [fallbackImage]).slice(0, maxListingImages)
+  const images = Array.isArray(value) ? value.filter(Boolean).map(String) : [];
+  return (images.length ? images : [fallbackImage]).slice(0, maxListingImages);
 }
 
 export function mapListing(row: any): DemoListing {
-  const images = imageList(row.image_urls)
-  const vendorName = row.business_name || [row.first_name, row.last_name].filter(Boolean).join(" ") || "i.Go-rent Vendor"
-  const vendorArea = row.pickup_area || row.residential_area || row.city || "Lagos"
+  const images = imageList(row.image_urls);
+  const vendorName =
+    row.business_name ||
+    [row.first_name, row.last_name].filter(Boolean).join(" ") ||
+    "i.Go-rent Vendor";
+  const vendorArea =
+    row.pickup_area || row.residential_area || row.city || "Lagos";
 
   return {
     id: String(row.id),
@@ -64,7 +72,9 @@ export function mapListing(row: any): DemoListing {
     location: String(row.location || vendorArea),
     deliveryArea: String(row.delivery_area || vendorArea),
     condition: normalizeCondition(row.condition),
-    knownDefects: String(row.known_defects || "No defects disclosed by vendor."),
+    knownDefects: String(
+      row.known_defects || "No defects disclosed by vendor.",
+    ),
     accessories: String(row.accessories || "Vendor confirmed item."),
     usageLimits: String(row.usage_limits || "Use only as agreed with vendor."),
     replacementValue: toNumber(row.replacement_value),
@@ -75,10 +85,12 @@ export function mapListing(row: any): DemoListing {
     images,
     included: splitIncluded(row.accessories),
     available: Boolean(row.available),
-  }
+  };
 }
 
-export function conditionSnapshotForListing(listing: DemoListing): DemoConditionSnapshot {
+export function conditionSnapshotForListing(
+  listing: DemoListing,
+): DemoConditionSnapshot {
   return {
     condition: listing.condition,
     knownDefects: listing.knownDefects,
@@ -89,12 +101,14 @@ export function conditionSnapshotForListing(listing: DemoListing): DemoCondition
     maxRentalDays: listing.maxRentalDays,
     photoCount: listing.images.length,
     vendorVerified: listing.vendorVerified,
-  }
+  };
 }
 
-export async function listMarketplaceListings(filters: { query?: string; category?: string; area?: string } = {}) {
-  const params: any[] = []
-  let paramIndex = 1
+export async function listMarketplaceListings(
+  filters: { query?: string; category?: string; area?: string } = {},
+) {
+  const params: any[] = [];
+  let paramIndex = 1;
   let query = `
     SELECT
       l.*,
@@ -112,30 +126,30 @@ export async function listMarketplaceListings(filters: { query?: string; categor
     JOIN users u ON u.id = l.host_id
     LEFT JOIN vendor_profiles vp ON vp.user_id = l.host_id
     WHERE l.available = TRUE
-  `
+  `;
 
   if (filters.query) {
-    query += ` AND (l.title ILIKE $${paramIndex} OR l.description ILIKE $${paramIndex} OR COALESCE(vp.business_name, u.full_name, u.name) ILIKE $${paramIndex})`
-    params.push(`%${filters.query}%`)
-    paramIndex += 1
+    query += ` AND (l.title ILIKE $${paramIndex} OR l.description ILIKE $${paramIndex} OR COALESCE(vp.business_name, u.full_name, u.name) ILIKE $${paramIndex})`;
+    params.push(`%${filters.query}%`);
+    paramIndex += 1;
   }
 
   if (filters.category && filters.category !== "All") {
-    query += ` AND c.name = $${paramIndex}`
-    params.push(filters.category)
-    paramIndex += 1
+    query += ` AND c.name = $${paramIndex}`;
+    params.push(filters.category);
+    paramIndex += 1;
   }
 
   if (filters.area) {
-    query += ` AND (l.location ILIKE $${paramIndex} OR l.city ILIKE $${paramIndex} OR COALESCE(vp.pickup_area, u.residential_area) ILIKE $${paramIndex})`
-    params.push(`%${filters.area}%`)
-    paramIndex += 1
+    query += ` AND (l.location ILIKE $${paramIndex} OR l.city ILIKE $${paramIndex} OR COALESCE(vp.pickup_area, u.residential_area) ILIKE $${paramIndex})`;
+    params.push(`%${filters.area}%`);
+    paramIndex += 1;
   }
 
-  query += " ORDER BY l.created_at DESC LIMIT 60"
+  query += " ORDER BY l.created_at DESC LIMIT 60";
 
-  const rows = await sql(query, params)
-  return rows.map(mapListing)
+  const rows = await sql(query, params);
+  return rows.map(mapListing);
 }
 
 export async function getMarketplaceListing(listingId: string) {
@@ -157,9 +171,9 @@ export async function getMarketplaceListing(listingId: string) {
     LEFT JOIN vendor_profiles vp ON vp.user_id = l.host_id
     WHERE l.id = $1`,
     [listingId],
-  )
+  );
 
-  return rows[0] ? mapListing(rows[0]) : null
+  return rows[0] ? mapListing(rows[0]) : null;
 }
 
 export async function getDbListingForBooking(listingId: string) {
@@ -182,17 +196,19 @@ export async function getDbListingForBooking(listingId: string) {
     LEFT JOIN vendor_profiles vp ON vp.user_id = l.host_id
     WHERE l.id = $1 AND l.available = TRUE`,
     [listingId],
-  )
+  );
 
-  if (!rows[0]) return null
+  if (!rows[0]) return null;
 
   return {
     row: rows[0],
     listing: mapListing(rows[0]),
-  }
+  };
 }
 
-export async function getUserForPolicy(userId: string): Promise<DemoUser | null> {
+export async function getUserForPolicy(
+  userId: string,
+): Promise<DemoUser | null> {
   const rows = await sql(
     `SELECT
       u.id, u.email, u.user_type, u.first_name, u.last_name, u.phone_number, u.residential_area, u.city, u.is_verified,
@@ -205,14 +221,17 @@ export async function getUserForPolicy(userId: string): Promise<DemoUser | null>
     LEFT JOIN logistics_provider_profiles lpp ON lpp.user_id = u.id
     WHERE u.id = $1`,
     [userId],
-  )
+  );
 
-  const row = rows[0]
-  if (!row) return null
+  const row = rows[0];
+  if (!row) return null;
 
   return {
     id: String(row.id),
-    role: row.user_type === "vendor" || row.user_type === "logistics" ? row.user_type : "renter",
+    role:
+      row.user_type === "vendor" || row.user_type === "logistics"
+        ? row.user_type
+        : "renter",
     firstName: String(row.first_name || ""),
     lastName: String(row.last_name || ""),
     email: String(row.email || ""),
@@ -225,9 +244,11 @@ export async function getUserForPolicy(userId: string): Promise<DemoUser | null>
     licenseNumber: row.license_number || "",
     vehicleType: row.vehicle_type || "",
     plateNumber: row.plate_number || "",
-    coverageArea: Array.isArray(row.coverage_areas) ? row.coverage_areas.join(", ") : "",
+    coverageArea: Array.isArray(row.coverage_areas)
+      ? row.coverage_areas.join(", ")
+      : "",
     verified: Boolean(row.is_verified),
-  }
+  };
 }
 
 export async function ensureCategoryId(categoryName: string) {
@@ -237,9 +258,9 @@ export async function ensureCategoryId(categoryName: string) {
      ON CONFLICT (name) DO UPDATE SET description = COALESCE(categories.description, EXCLUDED.description)
      RETURNING id`,
     [categoryName, `${categoryName} rentals`],
-  )
+  );
 
-  return rows[0].id
+  return rows[0].id;
 }
 
 export async function pickLogisticsProvider(listing: DemoListing) {
@@ -267,15 +288,19 @@ export async function pickLogisticsProvider(listing: DemoListing) {
       lpp.completed_dispatches DESC
     LIMIT 1`,
     [`${listing.vendorArea} ${listing.location} ${listing.deliveryArea}`],
-  )
+  );
 
-  const row = providers[0]
-  if (!row) return null
+  const row = providers[0];
+  if (!row) return null;
 
   const provider: DemoLogisticsProvider = {
     id: String(row.id),
-    providerName: String(row.provider_name || `${row.first_name} ${row.last_name}`),
-    contactName: [row.first_name, row.last_name].filter(Boolean).join(" ") || String(row.provider_name || "i.Go Logistics"),
+    providerName: String(
+      row.provider_name || `${row.first_name} ${row.last_name}`,
+    ),
+    contactName:
+      [row.first_name, row.last_name].filter(Boolean).join(" ") ||
+      String(row.provider_name || "i.Go Logistics"),
     phone: String(row.phone_number || ""),
     email: String(row.email || ""),
     vehicleType: String(row.vehicle_type || "Dispatch vehicle"),
@@ -284,17 +309,17 @@ export async function pickLogisticsProvider(listing: DemoListing) {
     verified: true,
     rating: toNumber(row.rating),
     completedDispatches: toNumber(row.completed_dispatches),
-  }
+  };
 
-  return provider
+  return provider;
 }
 
 export function buildDispatchSnapshot(input: {
-  provider: DemoLogisticsProvider
-  listing: DemoListing
-  renterName: string
-  renterPhone: string
-  startDate: string
+  provider: DemoLogisticsProvider;
+  listing: DemoListing;
+  renterName: string;
+  renterPhone: string;
+  startDate: string;
 }) {
   return {
     provider: input.provider,
@@ -302,7 +327,7 @@ export function buildDispatchSnapshot(input: {
     deliveryArea: input.listing.deliveryArea,
     pickupWindow: `${input.startDate} - 9:00 AM - 12:00 PM`,
     deliveryWindow: `${input.startDate} - 12:00 PM - 4:00 PM`,
-    handoverCode: `IG-${Math.floor(1000 + Math.random() * 9000)}`,
+    handoverCode: `IG-${randomInt(1000, 10000)}`,
     instructions:
       "Provider details are shared with both parties after escrow funding. Vendor should only release the item after recording condition proof and confirming the handover code.",
     vendorContact: {
@@ -313,13 +338,13 @@ export function buildDispatchSnapshot(input: {
       name: input.renterName,
       phone: input.renterPhone,
     },
-  }
+  };
 }
 
 function mapDispatch(row: any): DemoDispatch | null {
-  if (!row.dispatch_id) return null
+  if (!row.dispatch_id) return null;
 
-  const snapshot = row.provider_contact_snapshot || {}
+  const snapshot = row.provider_contact_snapshot || {};
   const provider = snapshot.provider || {
     id: row.logistics_provider_id || "pending",
     providerName: "i.Go-Logistics",
@@ -332,7 +357,7 @@ function mapDispatch(row: any): DemoDispatch | null {
     verified: true,
     rating: 0,
     completedDispatches: 0,
-  }
+  };
 
   return {
     id: String(row.dispatch_id),
@@ -344,17 +369,25 @@ function mapDispatch(row: any): DemoDispatch | null {
     pickupWindow: row.pickup_window || snapshot.pickupWindow || "",
     deliveryWindow: row.delivery_window || snapshot.deliveryWindow || "",
     dispatchFee: toNumber(row.dispatch_fee, logisticsFee),
-    vendorContact: snapshot.vendorContact || { name: row.vendor_name || "", phone: "" },
-    renterContact: snapshot.renterContact || { name: row.renter_name || "", phone: row.renter_phone || "" },
+    vendorContact: snapshot.vendorContact || {
+      name: row.vendor_name || "",
+      phone: "",
+    },
+    renterContact: snapshot.renterContact || {
+      name: row.renter_name || "",
+      phone: row.renter_phone || "",
+    },
     handoverCode: row.handover_code || snapshot.handoverCode || "",
     instructions: snapshot.instructions || "",
     assignedAt: row.dispatch_created_at || row.created_at,
-  }
+  };
 }
 
 export function mapBooking(row: any): DemoBooking {
-  const deliveryType: DeliveryType = row.delivery_type === "igo_logistics" ? "igo-logistics" : "self-pickup"
-  const conditionSnapshot = row.condition_snapshot as DemoConditionSnapshot | null
+  const deliveryType: DeliveryType =
+    row.delivery_type === "igo_logistics" ? "igo-logistics" : "self-pickup";
+  const conditionSnapshot =
+    row.condition_snapshot as DemoConditionSnapshot | null;
 
   return {
     id: String(row.id),
@@ -370,24 +403,23 @@ export function mapBooking(row: any): DemoBooking {
     deliveryType,
     deliveryFee: toNumber(row.delivery_fee),
     totalPaid: toNumber(row.total_paid || row.total_price),
-    escrowStatus: row.escrow_status || "held",
+    escrowStatus: row.escrow_status || "payment_pending",
     dispatch: mapDispatch(row),
     legalUseAccepted: Boolean(row.legal_use_accepted),
     conditionAcknowledged: Boolean(row.condition_acknowledged),
-    conditionSnapshot:
-      conditionSnapshot || {
-        condition: normalizeCondition(row.condition),
-        knownDefects: row.known_defects || "",
-        accessories: row.accessories || "",
-        usageLimits: row.usage_limits || "",
-        replacementValue: toNumber(row.replacement_value),
-        lateReturnFee: toNumber(row.late_return_fee),
-        maxRentalDays: toNumber(row.max_rental_days, 7),
-        photoCount: Array.isArray(row.image_urls) ? row.image_urls.length : 0,
-        vendorVerified: Boolean(row.vendor_verified),
-      },
+    conditionSnapshot: conditionSnapshot || {
+      condition: normalizeCondition(row.condition),
+      knownDefects: row.known_defects || "",
+      accessories: row.accessories || "",
+      usageLimits: row.usage_limits || "",
+      replacementValue: toNumber(row.replacement_value),
+      lateReturnFee: toNumber(row.late_return_fee),
+      maxRentalDays: toNumber(row.max_rental_days, 7),
+      photoCount: Array.isArray(row.image_urls) ? row.image_urls.length : 0,
+      vendorVerified: Boolean(row.vendor_verified),
+    },
     createdAt: row.created_at,
-  }
+  };
 }
 
 export async function getBookingRecord(bookingId: string) {
@@ -427,13 +459,18 @@ export async function getBookingRecord(bookingId: string) {
     LEFT JOIN dispatch_assignments d ON d.booking_id = b.id
     WHERE b.id = $1`,
     [bookingId],
-  )
+  );
 
-  return rows[0] ? mapBooking(rows[0]) : null
+  return rows[0] ? mapBooking(rows[0]) : null;
 }
 
 export async function listBookingsForUser(userId: string, role: string) {
-  const column = role === "vendor" ? "b.host_id" : role === "logistics" ? "d.logistics_provider_id" : "b.renter_id"
+  const column =
+    role === "vendor"
+      ? "b.host_id"
+      : role === "logistics"
+        ? "d.logistics_provider_id"
+        : "b.renter_id";
   const rows = await sql(
     `SELECT
       b.*,
@@ -472,15 +509,20 @@ export async function listBookingsForUser(userId: string, role: string) {
     ORDER BY b.created_at DESC
     LIMIT 60`,
     [userId],
-  )
+  );
 
-  return rows.map(mapBooking)
+  return rows.map(mapBooking);
 }
 
-export function totalsForListing(listing: DemoListing, startDate: string, endDate: string, deliveryType: DeliveryType) {
-  const days = calculateDays(startDate, endDate)
-  const rentalFee = days * listing.pricePerDay
-  const deliveryFee = deliveryType === "igo-logistics" ? logisticsFee : 0
+export function totalsForListing(
+  listing: DemoListing,
+  startDate: string,
+  endDate: string,
+  deliveryType: DeliveryType,
+) {
+  const days = calculateDays(startDate, endDate);
+  const rentalFee = days * listing.pricePerDay;
+  const deliveryFee = deliveryType === "igo-logistics" ? logisticsFee : 0;
 
   return {
     days,
@@ -488,5 +530,5 @@ export function totalsForListing(listing: DemoListing, startDate: string, endDat
     securityDeposit: listing.securityDeposit,
     deliveryFee,
     totalPaid: rentalFee + listing.securityDeposit + deliveryFee,
-  }
+  };
 }

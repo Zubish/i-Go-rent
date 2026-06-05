@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export function Navbar() {
   return (
@@ -14,7 +14,10 @@ export function Navbar() {
         </Link>
         <div className="flex gap-3">
           <Link href="/signin">
-            <Button variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent">
+            <Button
+              variant="outline"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
+            >
               Sign In
             </Button>
           </Link>
@@ -26,5 +29,5 @@ export function Navbar() {
         </div>
       </div>
     </nav>
-  )
+  );
 }

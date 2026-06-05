@@ -1,20 +1,23 @@
-"use server"
+"use server";
 
-import { sql } from "@/lib/db"
-import { initializeFlutterwavePayment, verifyFlutterwavePayment } from "@/lib/flutterwave"
+import { sql } from "@/lib/db";
+import {
+  initializeFlutterwavePayment,
+  verifyFlutterwavePayment,
+} from "@/lib/flutterwave";
 
 export interface BookingData {
-  renterId: string
-  listingId: string
-  hostId: string
-  startDate: string
-  endDate: string
-  numberOfDays: number
-  rentalFee: number
-  securityDeposit: number
-  deliveryType: "self_pickup" | "igo_logistics"
-  deliveryFee: number
-  totalPrice: number
+  renterId: string;
+  listingId: string;
+  hostId: string;
+  startDate: string;
+  endDate: string;
+  numberOfDays: number;
+  rentalFee: number;
+  securityDeposit: number;
+  deliveryType: "self_pickup" | "igo_logistics";
+  deliveryFee: number;
+  totalPrice: number;
 }
 
 // Create booking
@@ -25,7 +28,7 @@ export async function createBooking(data: BookingData) {
         renter_id, listing_id, host_id, start_date, end_date, number_of_days,
         price_per_day, rental_fee, security_deposit_amount, delivery_type, delivery_fee, total_price, total_paid, status
       )
-       SELECT $1, $2, $3, $4, $5, $6, price_per_day, $7, $8, $9, $10, $11, $11, 'pending'
+       SELECT $1, $2, $3, $4, $5, $6, price_per_day, $7, $8, $9, $10, $11, 0, 'pending'
        FROM listings WHERE id = $2
        RETURNING *`,
       [
@@ -41,43 +44,41 @@ export async function createBooking(data: BookingData) {
         data.deliveryFee,
         data.totalPrice,
       ],
-    )
+    );
 
     if (result.length === 0) {
-      return { success: false, error: "Failed to create booking" }
+      return { success: false, error: "Failed to create booking" };
     }
 
-    const booking = result[0]
+    const booking = result[0];
 
-    // Create escrow transaction
-    const escrowResult = await sql(
-      `INSERT INTO escrow_transactions (booking_id, renter_id, host_id, amount, currency, status)
-       VALUES ($1, $2, $3, $4, 'NGN', 'held')
-       RETURNING *`,
-      [booking.id, data.renterId, data.hostId, data.totalPrice],
-    )
-
-    return { success: true, booking, escrow: escrowResult[0] }
+    return { success: true, booking };
   } catch (error) {
-    console.error("Error creating booking:", error)
-    return { success: false, error: "Failed to create booking" }
+    console.error("Error creating booking:", error);
+    return { success: false, error: "Failed to create booking" };
   }
 }
 
 export async function markReturnedAndInspected(bookingId: string) {
   try {
-    await sql(`UPDATE bookings SET status = 'completed', updated_at = NOW() WHERE id = $1`, [bookingId])
+    await sql(
+      `UPDATE bookings SET status = 'completed', updated_at = NOW() WHERE id = $1`,
+      [bookingId],
+    );
     await sql(
       `UPDATE escrow_transactions
        SET status = 'deposit_refunded', release_reason = 'Returned and inspected', released_at = NOW(), updated_at = NOW()
        WHERE booking_id = $1`,
       [bookingId],
-    )
+    );
 
-    return { success: true, message: "Return inspection completed and escrow updated" }
+    return {
+      success: true,
+      message: "Return inspection completed and escrow updated",
+    };
   } catch (error) {
-    console.error("Error completing return inspection:", error)
-    return { success: false, error: "Failed to update escrow" }
+    console.error("Error completing return inspection:", error);
+    return { success: false, error: "Failed to update escrow" };
   }
 }
 
@@ -91,7 +92,7 @@ export async function initiatePayment(
   amount: number,
 ) {
   try {
-    const txRef = `igorent_${bookingId}_${Date.now()}`
+    const txRef = `igorent_${bookingId}_${Date.now()}`;
 
     const result = await initializeFlutterwavePayment({
       tx_ref: txRef,
@@ -109,50 +110,96 @@ export async function initiatePayment(
         logo: "https://igorent.ng/logo.png",
       },
       redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/payments/callback?bookingId=${bookingId}`,
-    })
+    });
 
     if (!result.success) {
-      return { success: false, error: result.error }
+      return { success: false, error: result.error };
     }
 
-    // Store payment record
-    await sql(
-      `INSERT INTO payments (booking_id, escrow_transaction_id, user_id, amount, currency, payment_method, status)
-       SELECT $1, e.id, $2, $3, 'NGN', 'flutterwave', 'initiated'
-       FROM escrow_transactions e WHERE e.booking_id = $1`,
-      [bookingId, userId, amount],
-    )
-
-    return { success: true, paymentLink: result.link }
+    return { success: true, paymentLink: result.link };
   } catch (error) {
-    console.error("Error initiating payment:", error)
-    return { success: false, error: "Payment initialization failed" }
+    console.error("Error initiating payment:", error);
+    return { success: false, error: "Payment initialization failed" };
   }
 }
 
 // Verify payment and confirm escrow
-export async function verifyAndConfirmPayment(bookingId: string, transactionId: string) {
+export async function verifyAndConfirmPayment(
+  bookingId: string,
+  transactionId: string,
+) {
   try {
     // Verify with Flutterwave
-    const verification = await verifyFlutterwavePayment(transactionId)
+    const verification = await verifyFlutterwavePayment(transactionId);
 
     if (!verification.success || verification.status !== "successful") {
-      return { success: false, error: "Payment verification failed" }
+      return { success: false, error: "Payment verification failed" };
     }
 
-    // Update payment record
-    await sql(`UPDATE payments SET status = 'completed' WHERE booking_id = $1`, [bookingId])
+    const escrowRows = await sql(
+      `WITH booking AS (
+         SELECT id, renter_id, host_id, total_price
+         FROM bookings
+         WHERE id = $1
+       ),
+       existing AS (
+         SELECT *
+         FROM escrow_transactions
+         WHERE booking_id = $1
+         LIMIT 1
+       ),
+       inserted AS (
+         INSERT INTO escrow_transactions (booking_id, renter_id, host_id, amount, currency, status)
+         SELECT id, renter_id, host_id, total_price, 'NGN', 'held'
+         FROM booking
+         WHERE NOT EXISTS (SELECT 1 FROM existing)
+         RETURNING *
+       )
+       SELECT * FROM inserted
+       UNION ALL
+       SELECT * FROM existing
+       LIMIT 1`,
+      [bookingId],
+    );
+
+    if (!escrowRows[0]) {
+      return { success: false, error: "Booking not found" };
+    }
+
+    await sql(
+      `INSERT INTO payments (
+         booking_id, escrow_transaction_id, user_id, amount, currency,
+         payment_method, status, flutterwave_transaction_id, flutterwave_reference
+       )
+       VALUES ($1, $2, $3, $4, 'NGN', 'flutterwave', 'completed', $5, $5)
+       ON CONFLICT (flutterwave_reference) DO UPDATE
+       SET status = 'completed',
+           flutterwave_transaction_id = EXCLUDED.flutterwave_transaction_id,
+           updated_at = NOW()`,
+      [
+        bookingId,
+        escrowRows[0].id,
+        escrowRows[0].renter_id,
+        escrowRows[0].amount,
+        transactionId,
+      ],
+    );
 
     // Confirm booking
-    await sql(`UPDATE bookings SET status = 'confirmed' WHERE id = $1`, [bookingId])
+    await sql(`UPDATE bookings SET status = 'confirmed' WHERE id = $1`, [
+      bookingId,
+    ]);
 
     // Update escrow to 'held' (funds are now held safely)
-    await sql(`UPDATE escrow_transactions SET status = 'held' WHERE booking_id = $1`, [bookingId])
+    await sql(
+      `UPDATE escrow_transactions SET status = 'held' WHERE booking_id = $1`,
+      [bookingId],
+    );
 
-    return { success: true, message: "Payment confirmed and escrow activated" }
+    return { success: true, message: "Payment confirmed and escrow activated" };
   } catch (error) {
-    console.error("Error verifying payment:", error)
-    return { success: false, error: "Payment verification failed" }
+    console.error("Error verifying payment:", error);
+    return { success: false, error: "Payment verification failed" };
   }
 }
 
@@ -169,31 +216,34 @@ export async function getBooking(bookingId: string) {
        JOIN users u2 ON b.host_id = u2.id
        WHERE b.id = $1`,
       [bookingId],
-    )
+    );
 
     if (result.length === 0) {
-      return { success: false, error: "Booking not found" }
+      return { success: false, error: "Booking not found" };
     }
 
-    return { success: true, booking: result[0] }
+    return { success: true, booking: result[0] };
   } catch (error) {
-    console.error("Error fetching booking:", error)
-    return { success: false, error: "Failed to fetch booking" }
+    console.error("Error fetching booking:", error);
+    return { success: false, error: "Failed to fetch booking" };
   }
 }
 
 // Get escrow transaction details
 export async function getEscrowTransaction(escrowId: string) {
   try {
-    const result = await sql(`SELECT * FROM escrow_transactions WHERE id = $1`, [escrowId])
+    const result = await sql(
+      `SELECT * FROM escrow_transactions WHERE id = $1`,
+      [escrowId],
+    );
 
     if (result.length === 0) {
-      return { success: false, error: "Escrow transaction not found" }
+      return { success: false, error: "Escrow transaction not found" };
     }
 
-    return { success: true, escrow: result[0] }
+    return { success: true, escrow: result[0] };
   } catch (error) {
-    console.error("Error fetching escrow:", error)
-    return { success: false, error: "Failed to fetch escrow" }
+    console.error("Error fetching escrow:", error);
+    return { success: false, error: "Failed to fetch escrow" };
   }
 }

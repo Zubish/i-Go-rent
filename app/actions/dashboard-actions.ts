@@ -1,6 +1,6 @@
-"use server"
+"use server";
 
-import { sql } from "@/lib/db"
+import { sql } from "@/lib/db";
 
 // Get renter dashboard data
 export async function getRenterDashboardData(userId: string) {
@@ -15,7 +15,7 @@ export async function getRenterDashboardData(userId: string) {
        ORDER BY b.start_date ASC
        LIMIT 5`,
       [userId],
-    )
+    );
 
     // Past bookings
     const pastBookings = await sql(
@@ -27,13 +27,13 @@ export async function getRenterDashboardData(userId: string) {
        ORDER BY b.end_date DESC
        LIMIT 5`,
       [userId],
-    )
+    );
 
     // Total spent
     const totalSpent = await sql(
       `SELECT SUM(total_price) as total FROM bookings WHERE renter_id = $1 AND status = 'completed'`,
       [userId],
-    )
+    );
 
     // Saved listings
     const savedListings = await sql(
@@ -42,10 +42,10 @@ export async function getRenterDashboardData(userId: string) {
        JOIN users u ON l.host_id = u.id
        LIMIT 10`,
       [userId],
-    )
+    );
 
     // User profile
-    const profile = await sql(`SELECT * FROM users WHERE id = $1`, [userId])
+    const profile = await sql(`SELECT * FROM users WHERE id = $1`, [userId]);
 
     return {
       success: true,
@@ -54,10 +54,10 @@ export async function getRenterDashboardData(userId: string) {
       pastBookings,
       totalSpent: totalSpent[0]?.total || 0,
       savedListings,
-    }
+    };
   } catch (error) {
-    console.error("Error fetching renter dashboard:", error)
-    return { success: false, error: "Failed to fetch dashboard data" }
+    console.error("Error fetching renter dashboard:", error);
+    return { success: false, error: "Failed to fetch dashboard data" };
   }
 }
 
@@ -73,7 +73,7 @@ export async function getHostDashboardData(userId: string) {
        WHERE b.host_id = $1 AND b.status IN ('confirmed', 'active')
        ORDER BY b.start_date ASC`,
       [userId],
-    )
+    );
 
     // Host listings
     const listings = await sql(
@@ -86,7 +86,7 @@ export async function getHostDashboardData(userId: string) {
        GROUP BY l.id
        ORDER BY l.created_at DESC`,
       [userId],
-    )
+    );
 
     // Monthly earnings
     const monthlyEarnings = await sql(
@@ -100,7 +100,7 @@ export async function getHostDashboardData(userId: string) {
        ORDER BY month DESC
        LIMIT 12`,
       [userId],
-    )
+    );
 
     // Total earnings
     const totalEarnings = await sql(
@@ -109,7 +109,7 @@ export async function getHostDashboardData(userId: string) {
        JOIN listings l ON b.listing_id = l.id
        WHERE l.host_id = $1 AND b.status = 'completed'`,
       [userId],
-    )
+    );
 
     // Pending payouts
     const pendingPayouts = await sql(
@@ -119,13 +119,16 @@ export async function getHostDashboardData(userId: string) {
        JOIN listings l ON b.listing_id = l.id
        WHERE l.host_id = $1 AND e.status = 'held'`,
       [userId],
-    )
+    );
 
     // Host tier status
-    const tierStatus = await sql(`SELECT * FROM host_tiers WHERE user_id = $1`, [userId])
+    const tierStatus = await sql(
+      `SELECT * FROM host_tiers WHERE user_id = $1`,
+      [userId],
+    );
 
     // User profile
-    const profile = await sql(`SELECT * FROM users WHERE id = $1`, [userId])
+    const profile = await sql(`SELECT * FROM users WHERE id = $1`, [userId]);
 
     return {
       success: true,
@@ -136,58 +139,61 @@ export async function getHostDashboardData(userId: string) {
       totalEarnings: totalEarnings[0]?.total || 0,
       pendingPayouts: pendingPayouts[0]?.total || 0,
       tierStatus: tierStatus[0],
-    }
+    };
   } catch (error) {
-    console.error("Error fetching host dashboard:", error)
-    return { success: false, error: "Failed to fetch dashboard data" }
+    console.error("Error fetching host dashboard:", error);
+    return { success: false, error: "Failed to fetch dashboard data" };
   }
 }
 
 // Update user profile
 export async function updateUserProfile(userId: string, data: Partial<any>) {
   try {
-    const updates: string[] = []
-    const values: any[] = []
-    let paramCount = 1
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCount = 1;
 
     if (data.firstName) {
-      updates.push(`first_name = $${paramCount}`)
-      values.push(data.firstName)
-      paramCount++
+      updates.push(`first_name = $${paramCount}`);
+      values.push(data.firstName);
+      paramCount++;
     }
     if (data.lastName) {
-      updates.push(`last_name = $${paramCount}`)
-      values.push(data.lastName)
-      paramCount++
+      updates.push(`last_name = $${paramCount}`);
+      values.push(data.lastName);
+      paramCount++;
     }
     if (data.phoneNumber) {
-      updates.push(`phone_number = $${paramCount}`)
-      values.push(data.phoneNumber)
-      paramCount++
+      updates.push(`phone_number = $${paramCount}`);
+      values.push(data.phoneNumber);
+      paramCount++;
     }
     if (data.bio) {
-      updates.push(`bio = $${paramCount}`)
-      values.push(data.bio)
-      paramCount++
+      updates.push(`bio = $${paramCount}`);
+      values.push(data.bio);
+      paramCount++;
     }
     if (data.location) {
-      updates.push(`location = $${paramCount}`)
-      values.push(data.location)
-      paramCount++
+      updates.push(`location = $${paramCount}`);
+      values.push(data.location);
+      paramCount++;
     }
 
     if (updates.length === 0) {
-      return { success: false, error: "No updates provided" }
+      return { success: false, error: "No updates provided" };
     }
 
-    updates.push(`updated_at = NOW()`)
-    values.push(userId)
+    updates.push(`updated_at = NOW()`);
+    values.push(userId);
 
-    const result = await sql(`UPDATE users SET ${updates.join(", ")} WHERE id = $${paramCount} RETURNING *`, values)
+    const result = await sql(
+      `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramCount} RETURNING *`,
+      values,
+    );
 
-    return { success: true, user: result[0] }
+    return { success: true, user: result[0] };
   } catch (error) {
-    console.error("Error updating profile:", error)
-    return { success: false, error: "Failed to update profile" }
+    console.error("Error updating profile:", error);
+    return { success: false, error: "Failed to update profile" };
   }
 }

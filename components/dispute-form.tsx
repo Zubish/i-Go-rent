@@ -1,29 +1,34 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { createDispute } from "@/app/actions/dispute-actions"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { useState } from "react";
+import { createDispute } from "@/app/actions/dispute-actions";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 interface DisputeFormProps {
-  bookingId: string
-  listingId: string
-  otherPartyId: string
-  rentalAmount: number
+  bookingId: string;
+  listingId: string;
+  otherPartyId: string;
+  rentalAmount: number;
 }
 
-export function DisputeForm({ bookingId, listingId, otherPartyId, rentalAmount }: DisputeFormProps) {
-  const [reason, setReason] = useState("")
-  const [description, setDescription] = useState("")
-  const [claimAmount, setClaimAmount] = useState(rentalAmount)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
+export function DisputeForm({
+  bookingId,
+  listingId,
+  otherPartyId,
+  rentalAmount,
+}: DisputeFormProps) {
+  const [reason, setReason] = useState("");
+  const [description, setDescription] = useState("");
+  const [claimAmount, setClaimAmount] = useState(rentalAmount);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setIsSubmitting(true)
+    e.preventDefault();
+    setIsSubmitting(true);
 
     try {
       await createDispute({
@@ -34,13 +39,13 @@ export function DisputeForm({ bookingId, listingId, otherPartyId, rentalAmount }
         reason,
         description,
         evidenceUrls: [],
-      })
-      setSubmitted(true)
+      });
+      setSubmitted(true);
     } catch (error) {
-      console.error("Failed to create dispute:", error)
-      alert("Failed to create dispute. Please try again.")
+      console.error("Failed to create dispute:", error);
+      alert("Failed to create dispute. Please try again.");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -48,17 +53,23 @@ export function DisputeForm({ bookingId, listingId, otherPartyId, rentalAmount }
     return (
       <Card className="p-4 bg-blue-50 border-blue-200">
         <p className="text-blue-700 font-semibold">Dispute Submitted</p>
-        <p className="text-blue-600 text-sm mt-1">Our team will review your dispute within 24-48 hours.</p>
+        <p className="text-blue-600 text-sm mt-1">
+          Our team will review your dispute within 24-48 hours.
+        </p>
       </Card>
-    )
+    );
   }
 
   return (
     <Card className="p-6 border-red-200 bg-red-50">
-      <h3 className="text-lg font-semibold mb-4 text-red-700">File a Dispute</h3>
+      <h3 className="text-lg font-semibold mb-4 text-red-700">
+        File a Dispute
+      </h3>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Reason for Dispute</label>
+          <label className="block text-sm font-medium mb-2">
+            Reason for Dispute
+          </label>
           <select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
@@ -68,7 +79,9 @@ export function DisputeForm({ bookingId, listingId, otherPartyId, rentalAmount }
             <option value="">Select a reason</option>
             <option value="item_damaged">Item damaged</option>
             <option value="item_not_returned">Item not returned</option>
-            <option value="item_different">Item different from description</option>
+            <option value="item_different">
+              Item different from description
+            </option>
             <option value="unauthorized_charge">Unauthorized charge</option>
             <option value="other">Other</option>
           </select>
@@ -87,7 +100,9 @@ export function DisputeForm({ bookingId, listingId, otherPartyId, rentalAmount }
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">Claim Amount (₦)</label>
+          <label className="block text-sm font-medium mb-2">
+            Claim Amount (₦)
+          </label>
           <input
             type="number"
             value={claimAmount}
@@ -96,13 +111,19 @@ export function DisputeForm({ bookingId, listingId, otherPartyId, rentalAmount }
             className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
             required
           />
-          <p className="text-xs text-gray-600 mt-1">Max claimable: ₦{rentalAmount.toLocaleString()}</p>
+          <p className="text-xs text-gray-600 mt-1">
+            Max claimable: ₦{rentalAmount.toLocaleString()}
+          </p>
         </div>
 
-        <Button type="submit" disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700">
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full bg-red-600 hover:bg-red-700"
+        >
           {isSubmitting ? "Submitting..." : "Submit Dispute"}
         </Button>
       </form>
     </Card>
-  )
+  );
 }

@@ -1,17 +1,17 @@
-"use server"
+"use server";
 
-import { sql } from "@/lib/db"
+import { sql } from "@/lib/db";
 
 // Submit review
 export async function submitReview(data: {
-  bookingId: string
-  reviewerId: string
-  reviewedUserId: string
-  listingId: string
-  rating: number
-  title: string
-  comment: string
-  reviewType: "renter" | "host"
+  bookingId: string;
+  reviewerId: string;
+  reviewedUserId: string;
+  listingId: string;
+  rating: number;
+  title: string;
+  comment: string;
+  reviewType: "renter" | "host";
 }) {
   try {
     const result = await sql(
@@ -28,7 +28,7 @@ export async function submitReview(data: {
         data.comment,
         data.reviewType,
       ],
-    )
+    );
 
     // Update user rating
     await sql(
@@ -38,7 +38,7 @@ export async function submitReview(data: {
            updated_at = NOW()
        WHERE id = $1`,
       [data.reviewedUserId],
-    )
+    );
 
     // Update listing rating
     await sql(
@@ -48,12 +48,12 @@ export async function submitReview(data: {
            updated_at = NOW()
        WHERE id = $1`,
       [data.listingId],
-    )
+    );
 
-    return { success: true, review: result[0] }
+    return { success: true, review: result[0] };
   } catch (error) {
-    console.error("Error submitting review:", error)
-    return { success: false, error: "Failed to submit review" }
+    console.error("Error submitting review:", error);
+    return { success: false, error: "Failed to submit review" };
   }
 }
 
@@ -68,12 +68,12 @@ export async function getUserReviews(userId: string) {
        WHERE r.reviewed_user_id = $1
        ORDER BY r.created_at DESC`,
       [userId],
-    )
+    );
 
-    return { success: true, reviews: result }
+    return { success: true, reviews: result };
   } catch (error) {
-    console.error("Error fetching reviews:", error)
-    return { success: false, error: "Failed to fetch reviews" }
+    console.error("Error fetching reviews:", error);
+    return { success: false, error: "Failed to fetch reviews" };
   }
 }
 
@@ -87,25 +87,28 @@ export async function getListingReviews(listingId: string) {
        WHERE r.listing_id = $1
        ORDER BY r.created_at DESC`,
       [listingId],
-    )
+    );
 
-    return { success: true, reviews: result }
+    return { success: true, reviews: result };
   } catch (error) {
-    console.error("Error fetching reviews:", error)
-    return { success: false, error: "Failed to fetch reviews" }
+    console.error("Error fetching reviews:", error);
+    return { success: false, error: "Failed to fetch reviews" };
   }
 }
 
 // Get reviews for user (alias for getUserReviews)
 export async function getReviewsForUser(userId: string) {
   try {
-    const result = await getUserReviews(userId)
+    const result = await getUserReviews(userId);
     if (!result.success) {
-      return { reviews: [], averageRating: 0, totalReviews: 0 }
+      return { reviews: [], averageRating: 0, totalReviews: 0 };
     }
 
-    const reviews = result.reviews || []
-    const averageRating = reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0
+    const reviews = result.reviews || [];
+    const averageRating =
+      reviews.length > 0
+        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+        : 0;
 
     return {
       reviews: reviews.map((r) => ({
@@ -120,9 +123,9 @@ export async function getReviewsForUser(userId: string) {
       })),
       averageRating,
       totalReviews: reviews.length,
-    }
+    };
   } catch (error) {
-    console.error("Error in getReviewsForUser:", error)
-    return { reviews: [], averageRating: 0, totalReviews: 0 }
+    console.error("Error in getReviewsForUser:", error);
+    return { reviews: [], averageRating: 0, totalReviews: 0 };
   }
 }

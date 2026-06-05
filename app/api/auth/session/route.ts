@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth"
-import { sql } from "@/lib/db"
+import { getCurrentUser } from "@/lib/auth";
+import { sql } from "@/lib/db";
 
 export async function GET() {
-  const authUser = await getCurrentUser()
+  const authUser = await getCurrentUser();
 
   if (!authUser) {
-    return NextResponse.json({ user: null })
+    return NextResponse.json({ user: null });
   }
 
   try {
@@ -24,13 +24,13 @@ export async function GET() {
        LEFT JOIN logistics_provider_profiles lpp ON lpp.user_id = u.id
        WHERE u.id = $1`,
       [authUser.userId],
-    )
+    );
 
     if (result.length === 0) {
-      return NextResponse.json({ user: null })
+      return NextResponse.json({ user: null });
     }
 
-    const user = result[0]
+    const user = result[0];
 
     return NextResponse.json({
       user: {
@@ -48,12 +48,14 @@ export async function GET() {
         licenseNumber: user.license_number || "",
         vehicleType: user.vehicle_type || "",
         plateNumber: user.plate_number || "",
-        coverageArea: Array.isArray(user.coverage_areas) ? user.coverage_areas.join(", ") : "",
+        coverageArea: Array.isArray(user.coverage_areas)
+          ? user.coverage_areas.join(", ")
+          : "",
         verified: Boolean(user.is_verified),
       },
-    })
+    });
   } catch (error) {
-    console.error("Session lookup failed:", error)
-    return NextResponse.json({ user: null }, { status: 500 })
+    console.error("Session lookup failed:", error);
+    return NextResponse.json({ user: null }, { status: 500 });
   }
 }

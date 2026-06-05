@@ -1,52 +1,104 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth"
-import { getKycStatus, maxListingImages } from "@/lib/demo-marketplace"
-import { sql } from "@/lib/db"
-import { ensureCategoryId, getUserForPolicy, listMarketplaceListings, mapListing } from "@/lib/marketplace-data"
+import { getCurrentUser } from "@/lib/auth";
+import {
+  getKycStatus,
+  maxListingImages,
+  seedListings,
+} from "@/lib/demo-marketplace";
+import { sql } from "@/lib/db";
+import {
+  ensureCategoryId,
+  getUserForPolicy,
+  listMarketplaceListings,
+  mapListing,
+} from "@/lib/marketplace-data";
 
 function splitImageUrls(value: unknown) {
   return String(value || "")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
-    .slice(0, maxListingImages)
+    .slice(0, maxListingImages);
+}
+
+function fallbackListings(filters: {
+  query?: string | null;
+  category?: string | null;
+  area?: string | null;
+}) {
+  const query = filters.query?.trim().toLowerCase();
+  const area = filters.area?.trim().toLowerCase();
+  const category = filters.category?.trim();
+
+  return seedListings.filter((listing) => {
+    const searchText =
+      `${listing.title} ${listing.description} ${listing.vendorName} ${listing.location}`.toLowerCase();
+    const matchesQuery = !query || searchText.includes(query);
+    const matchesCategory =
+      !category || category === "All" || listing.category === category;
+    const matchesArea =
+      !area ||
+      listing.location.toLowerCase().includes(area) ||
+      listing.vendorArea.toLowerCase().includes(area) ||
+      listing.deliveryArea.toLowerCase().includes(area);
+    return listing.available && matchesQuery && matchesCategory && matchesArea;
+  });
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
+    const searchParams = request.nextUrl.searchParams;
+    const filters = {
+      query: searchParams.get("query"),
+      category: searchParams.get("category"),
+      area: searchParams.get("area"),
+    };
     const listings = await listMarketplaceListings({
-      query: searchParams.get("query") || undefined,
-      category: searchParams.get("category") || undefined,
-      area: searchParams.get("area") || undefined,
-    })
+      query: filters.query || undefined,
+      category: filters.category || undefined,
+      area: filters.area || undefined,
+    });
 
-    return NextResponse.json({ listings })
+    return NextResponse.json({ listings });
   } catch (error) {
-    console.error("Listing fetch failed:", error)
-    return NextResponse.json({ error: "Failed to fetch listings" }, { status: 500 })
+    console.error("Listing fetch failed:", error);
+    const searchParams = request.nextUrl.searchParams;
+    return NextResponse.json({
+      listings: fallbackListings({
+        query: searchParams.get("query"),
+        category: searchParams.get("category"),
+        area: searchParams.get("area"),
+      }),
+      degraded: true,
+    });
   }
 }
 
 export async function POST(request: NextRequest) {
-  const authUser = await getCurrentUser()
+  const authUser = await getCurrentUser();
 
   if (!authUser) {
-    return NextResponse.json({ error: "Sign in before creating a listing" }, { status: 401 })
+    return NextResponse.json(
+      { error: "Sign in before creating a listing" },
+      { status: 401 },
+    );
   }
 
   try {
-    const vendor = await getUserForPolicy(authUser.userId)
-    const vendorKyc = getKycStatus(vendor, "vendor")
+    const vendor = await getUserForPolicy(authUser.userId);
+    const vendorKyc = getKycStatus(vendor, "vendor");
 
     if (!vendorKyc.canList) {
-      return NextResponse.json({ error: `Vendor KYC incomplete: ${vendorKyc.missing.join(", ")}` }, { status: 403 })
+      return NextResponse.json(
+        { error: `Vendor KYC incomplete: ${vendorKyc.missing.join(", ")}` },
+        { status: 403 },
+      );
     }
 
-    const input = await request.json()
-    const images = splitImageUrls(input.imageUrls)
-    const categoryId = await ensureCategoryId(input.category || "Events")
+    const input = await request.json();
+    const images = splitImageUrls(input.imageUrls);
+    const categoryId = await ensureCategoryId(input.category || "Events");
     const result = await sql(
       `INSERT INTO listings (
         host_id, category_id, title, description, price_per_day, security_deposit_amount,
@@ -78,7 +130,7 @@ export async function POST(request: NextRequest) {
         Number(input.maxRentalDays || 7),
         images.length,
       ],
-    )
+    );
 
     const rows = await sql(
       `SELECT
@@ -98,11 +150,14 @@ export async function POST(request: NextRequest) {
       LEFT JOIN vendor_profiles vp ON vp.user_id = l.host_id
       WHERE l.id = $1`,
       [result[0].id],
-    )
+    );
 
-    return NextResponse.json({ listing: mapListing(rows[0]) }, { status: 201 })
+    return NextResponse.json({ listing: mapListing(rows[0]) }, { status: 201 });
   } catch (error) {
-    console.error("Listing creation failed:", error)
-    return NextResponse.json({ error: "Failed to create listing" }, { status: 500 })
+    console.error("Listing creation failed:", error);
+    return NextResponse.json(
+      { error: "Failed to create listing" },
+      { status: 500 },
+    );
   }
 }

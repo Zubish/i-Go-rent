@@ -1,6 +1,6 @@
-"use client"
-import { Button } from "@/components/ui/button"
-import { Search } from "lucide-react"
+"use client";
+import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 
 export function HeroSection() {
   return (
@@ -11,10 +11,13 @@ export function HeroSection() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center mb-12">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">Rent Anything You Need</h1>
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+            Rent Anything You Need
+          </h1>
           <p className="text-xl md:text-2xl mb-8 opacity-95 max-w-3xl mx-auto">
-            Connect with verified hosts in your area. Secure payments. Government-verified identity. Your trusted
-            peer-to-peer rental marketplace in Nigeria.
+            Connect with verified hosts in your area. Secure payments.
+            Government-verified identity. Your trusted peer-to-peer rental
+            marketplace in Nigeria.
           </p>
         </div>
 
@@ -54,5 +57,5 @@ export function HeroSection() {
         </div>
       </div>
     </section>
-  )
+  );
 }

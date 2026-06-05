@@ -1,25 +1,28 @@
-"use client"
+"use client";
 
 const steps = [
   {
     number: "1",
     title: "Browse",
-    description: "Explore thousands of verified listings in your area. Filter by category, price, and ratings.",
+    description:
+      "Explore thousands of verified listings in your area. Filter by category, price, and ratings.",
     icon: "🔍",
   },
   {
     number: "2",
     title: "Book",
-    description: "Make a booking with secure escrow payment. Money is held safely until confirmation.",
+    description:
+      "Make a booking with secure escrow payment. Money is held safely until confirmation.",
     icon: "✓",
   },
   {
     number: "3",
     title: "Enjoy",
-    description: "Pick up your rental and enjoy! Leave a review and earn trust points.",
+    description:
+      "Pick up your rental and enjoy! Leave a review and earn trust points.",
     icon: "😊",
   },
-]
+];
 
 export function HowItWorks() {
   return (
@@ -46,5 +49,5 @@ export function HowItWorks() {
         </div>
       </div>
     </section>
-  )
+  );
 }

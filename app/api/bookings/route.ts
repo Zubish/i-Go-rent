@@ -1,8 +1,8 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/lib/auth"
-import { getKycStatus } from "@/lib/demo-marketplace"
-import { sql } from "@/lib/db"
+import { getCurrentUser } from "@/lib/auth";
+import { getKycStatus } from "@/lib/demo-marketplace";
+import { sql } from "@/lib/db";
 import {
   buildDispatchSnapshot,
   conditionSnapshotForListing,
@@ -12,68 +12,97 @@ import {
   mapBooking,
   pickLogisticsProvider,
   totalsForListing,
-} from "@/lib/marketplace-data"
+} from "@/lib/marketplace-data";
 
 export async function GET(request: NextRequest) {
-  const authUser = await getCurrentUser()
+  const authUser = await getCurrentUser();
 
   if (!authUser) {
-    return NextResponse.json({ bookings: [] })
+    return NextResponse.json({ bookings: [] });
   }
 
   try {
-    const role = request.nextUrl.searchParams.get("role") || authUser.userType
-    const bookings = await listBookingsForUser(authUser.userId, role)
-    return NextResponse.json({ bookings })
+    const role = request.nextUrl.searchParams.get("role") || authUser.userType;
+    const bookings = await listBookingsForUser(authUser.userId, role);
+    return NextResponse.json({ bookings });
   } catch (error) {
-    console.error("Booking fetch failed:", error)
-    return NextResponse.json({ error: "Failed to fetch bookings" }, { status: 500 })
+    console.error("Booking fetch failed:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch bookings" },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
-  const authUser = await getCurrentUser()
+  const authUser = await getCurrentUser();
 
   if (!authUser) {
-    return NextResponse.json({ error: "Sign in before booking a rental" }, { status: 401 })
+    return NextResponse.json(
+      { error: "Sign in before booking a rental" },
+      { status: 401 },
+    );
   }
 
   try {
-    const renter = await getUserForPolicy(authUser.userId)
-    const renterKyc = getKycStatus(renter, "renter")
+    const renter = await getUserForPolicy(authUser.userId);
+    const renterKyc = getKycStatus(renter, "renter");
 
     if (!renterKyc.canBook) {
-      return NextResponse.json({ error: `Renter KYC incomplete: ${renterKyc.missing.join(", ")}` }, { status: 403 })
+      return NextResponse.json(
+        { error: `Renter KYC incomplete: ${renterKyc.missing.join(", ")}` },
+        { status: 403 },
+      );
     }
 
-    const input = await request.json()
+    const input = await request.json();
 
     if (!input.legalUseAccepted || !input.conditionAcknowledged) {
-      return NextResponse.json({ error: "Required legal and condition confirmations are missing" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Required legal and condition confirmations are missing" },
+        { status: 400 },
+      );
     }
 
-    const dbListing = await getDbListingForBooking(input.listingId)
+    const dbListing = await getDbListingForBooking(input.listingId);
 
     if (!dbListing) {
-      return NextResponse.json({ error: "Listing not found" }, { status: 404 })
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
     if (!dbListing.listing.vendorVerified) {
-      return NextResponse.json({ error: "Vendor KYC must be complete before checkout" }, { status: 403 })
+      return NextResponse.json(
+        { error: "Vendor KYC must be complete before checkout" },
+        { status: 403 },
+      );
     }
 
-    const totals = totalsForListing(dbListing.listing, input.startDate, input.endDate, input.deliveryType)
+    const totals = totalsForListing(
+      dbListing.listing,
+      input.startDate,
+      input.endDate,
+      input.deliveryType,
+    );
 
     if (totals.days <= 0) {
-      return NextResponse.json({ error: "Choose a valid rental date range" }, { status: 400 })
+      return NextResponse.json(
+        { error: "Choose a valid rental date range" },
+        { status: 400 },
+      );
     }
 
     if (totals.days > dbListing.listing.maxRentalDays) {
-      return NextResponse.json({ error: "Selected duration exceeds this listing's maximum rental days" }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: "Selected duration exceeds this listing's maximum rental days",
+        },
+        { status: 400 },
+      );
     }
 
-    const conditionSnapshot = conditionSnapshotForListing(dbListing.listing)
-    const deliveryType = input.deliveryType === "igo-logistics" ? "igo_logistics" : "self_pickup"
+    const conditionSnapshot = conditionSnapshotForListing(dbListing.listing);
+    const deliveryType =
+      input.deliveryType === "igo-logistics" ? "igo_logistics" : "self_pickup";
     const bookingRows = await sql(
       `INSERT INTO bookings (
         renter_id, listing_id, host_id, start_date, end_date, number_of_days,
@@ -81,7 +110,7 @@ export async function POST(request: NextRequest) {
         delivery_fee, total_price, total_paid, status, renter_phone,
         legal_use_accepted, condition_acknowledged, condition_snapshot
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, 'confirmed', $13, TRUE, TRUE, $14)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0, 'pending', $13, TRUE, TRUE, $14)
       RETURNING *`,
       [
         authUser.userId,
@@ -99,25 +128,21 @@ export async function POST(request: NextRequest) {
         input.renterPhone || renter?.phone || "",
         JSON.stringify(conditionSnapshot),
       ],
-    )
-
-    await sql(
-      `INSERT INTO escrow_transactions (booking_id, renter_id, host_id, amount, currency, status)
-       VALUES ($1, $2, $3, $4, 'NGN', 'held')`,
-      [bookingRows[0].id, authUser.userId, dbListing.row.host_id, totals.totalPaid],
-    )
+    );
 
     if (deliveryType === "igo_logistics") {
-      const provider = await pickLogisticsProvider(dbListing.listing)
+      const provider = await pickLogisticsProvider(dbListing.listing);
 
       if (provider) {
         const snapshot = buildDispatchSnapshot({
           provider,
           listing: dbListing.listing,
-          renterName: input.renterName || `${renter?.firstName || ""} ${renter?.lastName || ""}`.trim(),
+          renterName:
+            input.renterName ||
+            `${renter?.firstName || ""} ${renter?.lastName || ""}`.trim(),
           renterPhone: input.renterPhone || renter?.phone || "",
           startDate: input.startDate,
-        })
+        });
 
         await sql(
           `INSERT INTO dispatch_assignments (
@@ -140,7 +165,7 @@ export async function POST(request: NextRequest) {
             totals.deliveryFee,
             snapshot.handoverCode,
           ],
-        )
+        );
       }
     }
 
@@ -180,11 +205,14 @@ export async function POST(request: NextRequest) {
       LEFT JOIN dispatch_assignments d ON d.booking_id = b.id
       WHERE b.id = $1`,
       [bookingRows[0].id],
-    )
+    );
 
-    return NextResponse.json({ booking: mapBooking(rows[0]) }, { status: 201 })
+    return NextResponse.json({ booking: mapBooking(rows[0]) }, { status: 201 });
   } catch (error) {
-    console.error("Booking creation failed:", error)
-    return NextResponse.json({ error: "Failed to create booking" }, { status: 500 })
+    console.error("Booking creation failed:", error);
+    return NextResponse.json(
+      { error: "Failed to create booking" },
+      { status: 500 },
+    );
   }
 }

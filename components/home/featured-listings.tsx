@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { MapPin, Star } from "lucide-react"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { MapPin, Star } from "lucide-react";
 
 const featuredListings = [
   {
@@ -45,7 +45,7 @@ const featuredListings = [
     reviews: 12,
     image: "⛵",
   },
-]
+];
 
 export function FeaturedListings() {
   return (
@@ -69,7 +69,9 @@ export function FeaturedListings() {
               <div className="flex items-center gap-1 mb-3">
                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                 <span className="text-sm font-medium">{listing.rating}</span>
-                <span className="text-sm text-gray-500">({listing.reviews})</span>
+                <span className="text-sm text-gray-500">
+                  ({listing.reviews})
+                </span>
               </div>
 
               <div className="flex items-center gap-1 text-gray-600 text-sm mb-4">
@@ -78,7 +80,9 @@ export function FeaturedListings() {
               </div>
 
               <div className="flex justify-between items-center">
-                <div className="text-2xl font-bold text-blue-600">₦{listing.price.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  ₦{listing.price.toLocaleString()}
+                </div>
                 <span className="text-sm text-gray-500">/day</span>
               </div>
 
@@ -92,5 +96,5 @@ export function FeaturedListings() {
         ))}
       </div>
     </section>
-  )
+  );
 }

@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import Link from "next/link"
+import Link from "next/link";
 
 const categories = [
   { name: "Accommodation", emoji: "🏠", color: "from-blue-400 to-blue-600" },
@@ -11,12 +11,14 @@ const categories = [
   { name: "Boats", emoji: "⛵", color: "from-cyan-400 to-cyan-600" },
   { name: "Events", emoji: "🎉", color: "from-purple-400 to-purple-600" },
   { name: "More", emoji: "⭐", color: "from-pink-400 to-pink-600" },
-]
+];
 
 export function CategoriesGrid() {
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h2 className="text-4xl font-bold text-center mb-12">Popular Categories</h2>
+      <h2 className="text-4xl font-bold text-center mb-12">
+        Popular Categories
+      </h2>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {categories.map((category) => (
@@ -31,5 +33,5 @@ export function CategoriesGrid() {
         ))}
       </div>
     </section>
-  )
+  );
 }

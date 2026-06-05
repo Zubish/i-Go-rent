@@ -1,51 +1,59 @@
-"use server"
+"use server";
 
-import { sql } from "@/lib/db"
-import { hashPassword, comparePasswords } from "@/lib/password"
-import { createToken, setAuthCookie, clearAuthCookie } from "@/lib/auth"
-import { verifyNIN, verifyDriversLicense, verifyIntlPassport, verifyBVN, verifyCAC } from "@/lib/id-verification"
-import { randomUUID } from "crypto"
+import { sql } from "@/lib/db";
+import { hashPassword, comparePasswords } from "@/lib/password";
+import { createToken, setAuthCookie, clearAuthCookie } from "@/lib/auth";
+import {
+  verifyNIN,
+  verifyDriversLicense,
+  verifyIntlPassport,
+  verifyBVN,
+  verifyCAC,
+} from "@/lib/id-verification";
+import { randomUUID } from "crypto";
 
-export type ProductionUserType = "renter" | "vendor" | "logistics"
+export type ProductionUserType = "renter" | "vendor" | "logistics";
 
 export async function signUp(formData: {
-  email: string
-  password: string
-  firstName: string
-  lastName: string
-  phoneNumber: string
-  userType: ProductionUserType
-  city: string
-  state: string
-  area?: string
-  nin?: string
-  bvn?: string
-  cac?: string
-  businessName?: string
-  licenseNumber?: string
-  vehicleType?: string
-  plateNumber?: string
-  coverageArea?: string
-  legalAccepted?: boolean
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  userType: ProductionUserType;
+  city: string;
+  state: string;
+  area?: string;
+  nin?: string;
+  bvn?: string;
+  cac?: string;
+  businessName?: string;
+  licenseNumber?: string;
+  vehicleType?: string;
+  plateNumber?: string;
+  coverageArea?: string;
+  legalAccepted?: boolean;
 }) {
   try {
     if (!formData.legalAccepted) {
-      return { success: false, error: "Legal-use policy must be accepted" }
+      return { success: false, error: "Legal-use policy must be accepted" };
     }
 
     // Check if user exists
-    const existingUser = await sql("SELECT id FROM users WHERE email = $1", [formData.email])
+    const existingUser = await sql("SELECT id FROM users WHERE email = $1", [
+      formData.email,
+    ]);
 
     if (existingUser.length > 0) {
-      return { success: false, error: "Email already registered" }
+      return { success: false, error: "Email already registered" };
     }
 
     // Hash password
-    const passwordHash = await hashPassword(formData.password)
+    const passwordHash = await hashPassword(formData.password);
 
     // Create user
-    const userId = randomUUID()
-    const fullName = `${formData.firstName} ${formData.lastName}`.trim()
+    const userId = randomUUID();
+    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
     const result = await sql(
       `INSERT INTO users (
         id, email, password_hash, full_name, name, role, status, kyc_status,
@@ -71,20 +79,26 @@ export async function signUp(formData: {
         "Nigeria",
         formData.area || formData.city,
       ],
-    )
+    );
 
-    const user = result[0]
+    const user = result[0];
 
     // Create identity verification record
-    const ninVerified = Boolean(formData.nin)
-    const bvnVerified = Boolean(formData.bvn)
-    const cacVerified = Boolean(formData.cac)
+    const ninVerified = Boolean(formData.nin);
+    const bvnVerified = Boolean(formData.bvn);
+    const cacVerified = Boolean(formData.cac);
     const isVerified =
       formData.userType === "vendor"
         ? ninVerified && bvnVerified
         : formData.userType === "logistics"
-          ? ninVerified && bvnVerified && Boolean(formData.licenseNumber && formData.vehicleType && formData.plateNumber)
-          : ninVerified
+          ? ninVerified &&
+            bvnVerified &&
+            Boolean(
+              formData.licenseNumber &&
+              formData.vehicleType &&
+              formData.plateNumber,
+            )
+          : ninVerified;
 
     await sql(
       `INSERT INTO identity_verification (
@@ -113,10 +127,13 @@ export async function signUp(formData: {
         Boolean(formData.licenseNumber),
         isVerified ? "verified" : "pending",
       ],
-    )
+    );
 
     if (isVerified) {
-      await sql(`UPDATE users SET is_verified = true, updated_at = NOW() WHERE id = $1`, [user.id])
+      await sql(
+        `UPDATE users SET is_verified = true, updated_at = NOW() WHERE id = $1`,
+        [user.id],
+      );
     }
 
     // If vendor, create vendor verification record
@@ -125,7 +142,7 @@ export async function signUp(formData: {
         `INSERT INTO host_tiers (user_id, current_tier)
          VALUES ($1, $2)`,
         [user.id, bvnVerified ? 2 : ninVerified ? 1 : 0],
-      )
+      );
 
       await sql(
         `INSERT INTO vendor_profiles (
@@ -144,14 +161,18 @@ export async function signUp(formData: {
           formData.businessName || null,
           formData.cac || null,
           formData.area || formData.city,
-          cacVerified && formData.businessName ? "business_verified" : isVerified ? "basic_verified" : "vendor_draft",
+          cacVerified && formData.businessName
+            ? "business_verified"
+            : isVerified
+              ? "basic_verified"
+              : "vendor_draft",
           isVerified,
         ],
-      )
+      );
     }
 
     if (formData.userType === "logistics") {
-      const canReceiveDispatch = isVerified
+      const canReceiveDispatch = isVerified;
       await sql(
         `INSERT INTO logistics_provider_profiles (
           user_id, provider_name, license_number, vehicle_type, plate_number,
@@ -169,7 +190,8 @@ export async function signUp(formData: {
           updated_at = NOW()`,
         [
           user.id,
-          formData.businessName || `${formData.firstName} ${formData.lastName} Logistics`,
+          formData.businessName ||
+            `${formData.firstName} ${formData.lastName} Logistics`,
           formData.licenseNumber || null,
           formData.vehicleType || null,
           formData.plateNumber || null,
@@ -180,7 +202,7 @@ export async function signUp(formData: {
           canReceiveDispatch ? "logistics_verified" : "logistics_draft",
           canReceiveDispatch,
         ],
-      )
+      );
     }
 
     // Create auth token
@@ -189,10 +211,10 @@ export async function signUp(formData: {
       userId: user.id,
       email: user.email,
       userType: user.user_type,
-    })
+    });
 
     // Set auth cookie
-    await setAuthCookie(token)
+    await setAuthCookie(token);
 
     return {
       success: true,
@@ -215,10 +237,10 @@ export async function signUp(formData: {
         verified: isVerified,
       },
       userId: user.id,
-    }
+    };
   } catch (error) {
-    console.error("Sign up error:", error)
-    return { success: false, error: "Failed to create account" }
+    console.error("Sign up error:", error);
+    return { success: false, error: "Failed to create account" };
   }
 }
 
@@ -237,17 +259,17 @@ export async function signIn(email: string, password: string) {
        LEFT JOIN logistics_provider_profiles lpp ON lpp.user_id = u.id
        WHERE u.email = $1`,
       [email],
-    )
+    );
 
     if (result.length === 0) {
-      return { success: false, error: "Invalid credentials" }
+      return { success: false, error: "Invalid credentials" };
     }
 
-    const user = result[0]
-    const passwordMatch = await comparePasswords(password, user.password_hash)
+    const user = result[0];
+    const passwordMatch = await comparePasswords(password, user.password_hash);
 
     if (!passwordMatch) {
-      return { success: false, error: "Invalid credentials" }
+      return { success: false, error: "Invalid credentials" };
     }
 
     // Create auth token
@@ -256,10 +278,10 @@ export async function signIn(email: string, password: string) {
       userId: user.id,
       email: user.email,
       userType: user.user_type,
-    })
+    });
 
     // Set auth cookie
-    await setAuthCookie(token)
+    await setAuthCookie(token);
 
     return {
       success: true,
@@ -278,20 +300,22 @@ export async function signIn(email: string, password: string) {
         licenseNumber: user.license_number || "",
         vehicleType: user.vehicle_type || "",
         plateNumber: user.plate_number || "",
-        coverageArea: Array.isArray(user.coverage_areas) ? user.coverage_areas.join(", ") : "",
+        coverageArea: Array.isArray(user.coverage_areas)
+          ? user.coverage_areas.join(", ")
+          : "",
         verified: Boolean(user.is_verified),
       },
       userId: user.id,
-    }
+    };
   } catch (error) {
-    console.error("Sign in error:", error)
-    return { success: false, error: "Failed to sign in" }
+    console.error("Sign in error:", error);
+    return { success: false, error: "Failed to sign in" };
   }
 }
 
 export async function signOut() {
-  await clearAuthCookie()
-  return { success: true }
+  await clearAuthCookie();
+  return { success: true };
 }
 
 export async function submitIDVerification(
@@ -300,31 +324,31 @@ export async function submitIDVerification(
   idNumber: string,
 ) {
   try {
-    let verificationResult
+    let verificationResult;
 
     // Verify with government database
     switch (idType) {
       case "nin":
-        verificationResult = await verifyNIN(idNumber)
-        break
+        verificationResult = await verifyNIN(idNumber);
+        break;
       case "drivers_license":
-        verificationResult = await verifyDriversLicense(idNumber, "")
-        break
+        verificationResult = await verifyDriversLicense(idNumber, "");
+        break;
       case "intl_passport":
-        verificationResult = await verifyIntlPassport(idNumber)
-        break
+        verificationResult = await verifyIntlPassport(idNumber);
+        break;
       case "bvn":
-        verificationResult = await verifyBVN(idNumber)
-        break
+        verificationResult = await verifyBVN(idNumber);
+        break;
       case "cac":
-        verificationResult = await verifyCAC(idNumber)
-        break
+        verificationResult = await verifyCAC(idNumber);
+        break;
       default:
-        return { success: false, error: "Invalid ID type" }
+        return { success: false, error: "Invalid ID type" };
     }
 
     if (!verificationResult.verified) {
-      return { success: false, error: verificationResult.error }
+      return { success: false, error: verificationResult.error };
     }
 
     // Update identity verification record
@@ -336,13 +360,13 @@ export async function submitIDVerification(
           verification_status = 'verified',
           updated_at = NOW()
       WHERE user_id = $2
-    `
+    `;
 
-    await sql(updateQuery, [idNumber, userId])
+    await sql(updateQuery, [idNumber, userId]);
 
-    return { success: true, verified: true }
+    return { success: true, verified: true };
   } catch (error) {
-    console.error("ID verification error:", error)
-    return { success: false, error: "Verification failed" }
+    console.error("ID verification error:", error);
+    return { success: false, error: "Verification failed" };
   }
 }

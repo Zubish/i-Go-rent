@@ -1,16 +1,16 @@
-"use server"
+"use server";
 
-import { sql } from "@/lib/db"
+import { sql } from "@/lib/db";
 
 // Create dispute
 export async function createDispute(data: {
-  bookingId: string
-  escrowId: string
-  initiatedBy: string
-  opposedBy: string
-  reason: string
-  description: string
-  evidenceUrls?: string[]
+  bookingId: string;
+  escrowId: string;
+  initiatedBy: string;
+  opposedBy: string;
+  reason: string;
+  description: string;
+  evidenceUrls?: string[];
 }) {
   try {
     const result = await sql(
@@ -26,18 +26,23 @@ export async function createDispute(data: {
         data.description,
         data.evidenceUrls,
       ],
-    )
+    );
 
     // Update escrow to disputed
-    await sql(`UPDATE escrow_transactions SET status = 'disputed' WHERE id = $1`, [data.escrowId])
+    await sql(
+      `UPDATE escrow_transactions SET status = 'disputed' WHERE id = $1`,
+      [data.escrowId],
+    );
 
     // Update booking status
-    await sql(`UPDATE bookings SET status = 'disputed' WHERE id = $1`, [data.bookingId])
+    await sql(`UPDATE bookings SET status = 'disputed' WHERE id = $1`, [
+      data.bookingId,
+    ]);
 
-    return { success: true, dispute: result[0] }
+    return { success: true, dispute: result[0] };
   } catch (error) {
-    console.error("Error creating dispute:", error)
-    return { success: false, error: "Failed to create dispute" }
+    console.error("Error creating dispute:", error);
+    return { success: false, error: "Failed to create dispute" };
   }
 }
 
@@ -54,16 +59,16 @@ export async function getDispute(disputeId: string) {
        LEFT JOIN listings b ON d.booking_id = b.id
        WHERE d.id = $1`,
       [disputeId],
-    )
+    );
 
     if (result.length === 0) {
-      return { success: false, error: "Dispute not found" }
+      return { success: false, error: "Dispute not found" };
     }
 
-    return { success: true, dispute: result[0] }
+    return { success: true, dispute: result[0] };
   } catch (error) {
-    console.error("Error fetching dispute:", error)
-    return { success: false, error: "Failed to fetch dispute" }
+    console.error("Error fetching dispute:", error);
+    return { success: false, error: "Failed to fetch dispute" };
   }
 }
 
@@ -79,16 +84,16 @@ export async function getUserDisputes(userId: string) {
        WHERE (d.initiated_by = $1 OR d.opposed_by = $1) AND d.status != 'resolved'
        ORDER BY d.created_at DESC`,
       [userId],
-    )
+    );
 
-    return { success: true, disputes: result }
+    return { success: true, disputes: result };
   } catch (error) {
-    console.error("Error fetching disputes:", error)
-    return { success: false, error: "Failed to fetch disputes" }
+    console.error("Error fetching disputes:", error);
+    return { success: false, error: "Failed to fetch disputes" };
   }
 }
 
 // Get disputes for user (alias for getUserDisputes)
 export async function getDisputesForUser(userId: string) {
-  return getUserDisputes(userId)
+  return getUserDisputes(userId);
 }

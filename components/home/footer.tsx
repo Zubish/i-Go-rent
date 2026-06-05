@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import Link from "next/link"
+import Link from "next/link";
 
 export function Footer() {
   return (
@@ -10,7 +10,8 @@ export function Footer() {
           <div>
             <h3 className="text-white font-bold text-lg mb-4">i.Go-rent</h3>
             <p className="text-sm">
-              Nigeria's trusted peer-to-peer rental marketplace with secure escrow and verified hosts.
+              Nigeria's trusted peer-to-peer rental marketplace with secure
+              escrow and verified hosts.
             </p>
           </div>
 
@@ -98,5 +99,5 @@ export function Footer() {
         </div>
       </div>
     </footer>
-  )
+  );
 }

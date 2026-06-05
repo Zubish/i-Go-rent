@@ -1,19 +1,32 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
 
-import { getMarketplaceListing } from "@/lib/marketplace-data"
+import { seedListings } from "@/lib/demo-marketplace";
+import { getMarketplaceListing } from "@/lib/marketplace-data";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
-    const { id } = await params
-    const listing = await getMarketplaceListing(id)
+    const { id } = await params;
+    const listing = await getMarketplaceListing(id);
+    const fallbackListing =
+      listing || seedListings.find((item) => item.id === id) || null;
 
-    if (!listing) {
-      return NextResponse.json({ error: "Listing not found" }, { status: 404 })
+    if (!fallbackListing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ listing })
+    return NextResponse.json({ listing: fallbackListing });
   } catch (error) {
-    console.error("Listing lookup failed:", error)
-    return NextResponse.json({ error: "Failed to fetch listing" }, { status: 500 })
+    console.error("Listing lookup failed:", error);
+    const { id } = await params;
+    const listing = seedListings.find((item) => item.id === id);
+
+    if (!listing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ listing, degraded: true });
   }
 }

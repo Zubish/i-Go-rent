@@ -1,26 +1,30 @@
-"use client"
+"use client";
 
-import { Card } from "@/components/ui/card"
-import { formatDistanceToNow } from "date-fns"
+import { Card } from "@/components/ui/card";
+import { formatDistanceToNow } from "date-fns";
 
 interface Review {
-  id: string
-  rating: number
-  comment: string
-  createdAt: Date
+  id: string;
+  rating: number;
+  comment: string;
+  createdAt: Date;
   reviewer: {
-    name: string
-    tier?: string
-  }
+    name: string;
+    tier?: string;
+  };
 }
 
 interface ReviewsDisplayProps {
-  reviews: Review[]
-  averageRating: number
-  totalReviews: number
+  reviews: Review[];
+  averageRating: number;
+  totalReviews: number;
 }
 
-export function ReviewsDisplay({ reviews, averageRating, totalReviews }: ReviewsDisplayProps) {
+export function ReviewsDisplay({
+  reviews,
+  averageRating,
+  totalReviews,
+}: ReviewsDisplayProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -28,7 +32,14 @@ export function ReviewsDisplay({ reviews, averageRating, totalReviews }: Reviews
         <div>
           <div className="flex gap-1 mb-1">
             {[1, 2, 3, 4, 5].map((star) => (
-              <span key={star} className={star <= Math.round(averageRating) ? "text-yellow-400" : "text-gray-300"}>
+              <span
+                key={star}
+                className={
+                  star <= Math.round(averageRating)
+                    ? "text-yellow-400"
+                    : "text-gray-300"
+                }
+              >
                 ★
               </span>
             ))}
@@ -54,7 +65,14 @@ export function ReviewsDisplay({ reviews, averageRating, totalReviews }: Reviews
                 </div>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <span key={star} className={star <= review.rating ? "text-yellow-400" : "text-gray-300"}>
+                    <span
+                      key={star}
+                      className={
+                        star <= review.rating
+                          ? "text-yellow-400"
+                          : "text-gray-300"
+                      }
+                    >
                       ★
                     </span>
                   ))}
@@ -62,12 +80,14 @@ export function ReviewsDisplay({ reviews, averageRating, totalReviews }: Reviews
               </div>
               <p className="text-gray-700 mb-2">{review.comment}</p>
               <p className="text-xs text-gray-500">
-                {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}
+                {formatDistanceToNow(new Date(review.createdAt), {
+                  addSuffix: true,
+                })}
               </p>
             </Card>
           ))
         )}
       </div>
     </div>
-  )
+  );
 }

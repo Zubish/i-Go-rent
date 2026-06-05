@@ -1,27 +1,31 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { submitReview } from "@/app/actions/review-actions"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { useState } from "react";
+import { submitReview } from "@/app/actions/review-actions";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 interface ReviewFormProps {
-  bookingId: string
-  listingId: string
-  recipientId: string
+  bookingId: string;
+  listingId: string;
+  recipientId: string;
 }
 
-export function ReviewForm({ bookingId, listingId, recipientId }: ReviewFormProps) {
-  const [rating, setRating] = useState(5)
-  const [comment, setComment] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
+export function ReviewForm({
+  bookingId,
+  listingId,
+  recipientId,
+}: ReviewFormProps) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setIsSubmitting(true)
+    e.preventDefault();
+    setIsSubmitting(true);
 
     try {
       await submitReview({
@@ -33,14 +37,14 @@ export function ReviewForm({ bookingId, listingId, recipientId }: ReviewFormProp
         title: "Rental experience",
         comment,
         reviewType: "renter",
-      })
-      setSubmitted(true)
-      setComment("")
-      setRating(5)
+      });
+      setSubmitted(true);
+      setComment("");
+      setRating(5);
     } catch (error) {
-      console.error("Failed to submit review:", error)
+      console.error("Failed to submit review:", error);
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
   }
 
@@ -49,7 +53,7 @@ export function ReviewForm({ bookingId, listingId, recipientId }: ReviewFormProp
       <Card className="p-4 bg-green-50 border-green-200">
         <p className="text-green-700">Thank you for your review!</p>
       </Card>
-    )
+    );
   }
 
   return (
@@ -89,5 +93,5 @@ export function ReviewForm({ bookingId, listingId, recipientId }: ReviewFormProp
         </Button>
       </form>
     </Card>
-  )
+  );
 }
