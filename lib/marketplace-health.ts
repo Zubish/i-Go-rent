@@ -13,6 +13,7 @@ export type MarketplaceHealth = {
   checks: {
     databaseConfigured: boolean;
     paymentProviderConfigured: boolean;
+    imageStorageConfigured: boolean;
     requiredTablesPresent: boolean;
     hasDatabaseListings: boolean;
   };
@@ -35,6 +36,7 @@ export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
   const paymentProviderConfigured = Boolean(
     process.env.FLUTTERWAVE_SECRET_KEY && process.env.FLUTTERWAVE_SECRET_HASH,
   );
+  const imageStorageConfigured = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
   if (!databaseConfigured) {
     return {
@@ -49,6 +51,7 @@ export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
       checks: {
         databaseConfigured: false,
         paymentProviderConfigured,
+        imageStorageConfigured,
         requiredTablesPresent: false,
         hasDatabaseListings: false,
       },
@@ -92,11 +95,15 @@ export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
     if (!paymentProviderConfigured) {
       issues.push("Flutterwave payment provider is not fully configured");
     }
+    if (!imageStorageConfigured) {
+      issues.push("Vercel Blob image storage is not configured");
+    }
 
     const healthy =
       requiredTablesPresent &&
       Number(databaseListings) > 0 &&
-      paymentProviderConfigured;
+      paymentProviderConfigured &&
+      imageStorageConfigured;
 
     return {
       status: healthy ? "healthy" : "degraded",
@@ -110,6 +117,7 @@ export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
       checks: {
         databaseConfigured: true,
         paymentProviderConfigured,
+        imageStorageConfigured,
         requiredTablesPresent,
         hasDatabaseListings: Number(databaseListings) > 0,
       },
@@ -128,6 +136,7 @@ export async function getMarketplaceHealth(): Promise<MarketplaceHealth> {
       checks: {
         databaseConfigured: true,
         paymentProviderConfigured,
+        imageStorageConfigured,
         requiredTablesPresent: false,
         hasDatabaseListings: false,
       },

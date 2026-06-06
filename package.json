@@ -10,6 +10,7 @@
     "smoke:production": "node scripts/smoke-production.mjs",
     "smoke:production-booking": "node scripts/smoke-production-booking.mjs",
     "smoke:production-payment": "node scripts/smoke-production-payment.mjs",
+    "smoke:production-upload": "node scripts/smoke-production-upload.mjs",
     "smoke:production-vendor": "node scripts/smoke-production-vendor.mjs",
     "test": "node scripts/marketplace-rules.test.mjs",
     "start": "next start"
@@ -45,6 +46,7 @@
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
     "@vercel/analytics": "1.3.1",
+    "@vercel/blob": "^2.4.0",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "3.0.3",
     "class-variance-authority": "^0.7.1",

@@ -14,6 +14,7 @@ const listingsRoute = read("app/api/listings/route.ts");
 const listingDetailRoute = read("app/api/listings/[id]/route.ts");
 const bookingsRoute = read("app/api/bookings/route.ts");
 const paymentsCheckoutRoute = read("app/api/payments/checkout/route.ts");
+const listingPhotoUploadRoute = read("app/api/uploads/listing-photo/route.ts");
 const bookingPage = read("app/(marketplace)/bookings/[id]/page.tsx");
 const paymentCallbackPage = read("app/(marketplace)/payments/callback/page.tsx");
 const browsePage = read("app/(marketplace)/browse/page.tsx");
@@ -55,6 +56,11 @@ assert.equal(
   "Payment checkout smoke checks should be available as npm run smoke:production-payment.",
 );
 assert.equal(
+  packageJson.scripts["smoke:production-upload"],
+  "node scripts/smoke-production-upload.mjs",
+  "Listing photo upload smoke checks should be available as npm run smoke:production-upload.",
+);
+assert.equal(
   packageJson.scripts["smoke:production-vendor"],
   "node scripts/smoke-production-vendor.mjs",
   "Verified vendor listing smoke checks should be available as npm run smoke:production-vendor.",
@@ -90,6 +96,11 @@ assertPresent(
   health,
   /paymentProviderConfigured/,
   "Marketplace health should disclose payment-provider readiness.",
+);
+assertPresent(
+  health,
+  /imageStorageConfigured/,
+  "Marketplace health should disclose listing image storage readiness.",
 );
 assertPresent(
   health,
@@ -231,6 +242,31 @@ assertPresent(
   dashboardPage,
   /type="file"[\s\S]*accept="image\/\*"/,
   "Dashboard listing creation should use photo upload instead of pasted URLs.",
+);
+assertPresent(
+  dashboardPage,
+  /api\/uploads\/listing-photo/,
+  "Dashboard should upload selected listing photos before creating listings.",
+);
+assertAbsent(
+  dashboardPage,
+  /imageUrls:\s*photoDataUrls/,
+  "Dashboard should not save browser preview data URLs as listing images.",
+);
+assertPresent(
+  listingPhotoUploadRoute,
+  /BLOB_READ_WRITE_TOKEN/,
+  "Listing photo uploads should require configured Blob storage.",
+);
+assertPresent(
+  listingPhotoUploadRoute,
+  /Sign in before uploading listing photos/,
+  "Listing photo uploads should require authentication.",
+);
+assertPresent(
+  listingPhotoUploadRoute,
+  /image\/jpeg[\s\S]*image\/png[\s\S]*image\/webp/,
+  "Listing photo uploads should validate supported image types.",
 );
 
 assertPresent(

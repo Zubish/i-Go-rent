@@ -58,6 +58,7 @@ export default function DashboardPage() {
   const [vendorBookings, setVendorBookings] = useState<DemoBooking[]>([]);
   const [dispatchBookings, setDispatchBookings] = useState<DemoBooking[]>([]);
   const [form, setForm] = useState(defaultListingForm);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [photoDataUrls, setPhotoDataUrls] = useState<string[]>([]);
   const [createdListingId, setCreatedListingId] = useState("");
   const [listingError, setListingError] = useState("");
@@ -163,6 +164,7 @@ export default function DashboardPage() {
 
   const handlePhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []).slice(0, maxListingImages);
+    setPhotoFiles(files);
     const dataUrls = await Promise.all(
       files.map(
         (file) =>
@@ -177,12 +179,41 @@ export default function DashboardPage() {
     setPhotoDataUrls(dataUrls);
   };
 
+  const uploadPhotos = async () => {
+    const uploadedUrls: string[] = [];
+
+    for (const file of photoFiles) {
+      const uploadForm = new FormData();
+      uploadForm.append("file", file);
+
+      const response = await fetch("/api/uploads/listing-photo", {
+        method: "POST",
+        body: uploadForm,
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "Could not upload listing photo");
+      }
+
+      uploadedUrls.push(data.url);
+    }
+
+    return uploadedUrls;
+  };
+
   const handleCreateListing = async (event: React.FormEvent) => {
     event.preventDefault();
     setListingError("");
     setSubmittingListing(true);
 
     try {
+      if (!photoFiles.length) {
+        setListingError("Add at least one item photo");
+        return;
+      }
+
+      const imageUrls = await uploadPhotos();
       const response = await fetch("/api/listings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -193,7 +224,7 @@ export default function DashboardPage() {
           replacementValue: Number(form.replacementValue),
           lateReturnFee: Number(form.lateReturnFee),
           maxRentalDays: Number(form.maxRentalDays),
-          imageUrls: photoDataUrls,
+          imageUrls,
         }),
       });
       const data = await response.json();
@@ -210,6 +241,7 @@ export default function DashboardPage() {
         ...current.filter((item) => item.id !== listing.id),
       ]);
       setForm(defaultListingForm);
+      setPhotoFiles([]);
       setPhotoDataUrls([]);
     } catch (error) {
       setListingError(
