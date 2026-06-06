@@ -15,10 +15,22 @@ const listingDetailRoute = read("app/api/listings/[id]/route.ts");
 const bookingsRoute = read("app/api/bookings/route.ts");
 const paymentsCheckoutRoute = read("app/api/payments/checkout/route.ts");
 const listingPhotoUploadRoute = read("app/api/uploads/listing-photo/route.ts");
+const sessionRoute = read("app/api/auth/session/route.ts");
+const authActions = read("app/actions/auth-actions.ts");
+const resendVerificationRoute = read("app/api/auth/resend-verification/route.ts");
+const verifyEmailRoute = read("app/api/auth/verify-email/route.ts");
+const resetRequestRoute = read("app/api/auth/password-reset/request/route.ts");
+const resetConfirmRoute = read("app/api/auth/password-reset/confirm/route.ts");
+const devOutboxRoute = read("app/api/dev/email-outbox/route.ts");
+const accountEmail = read("lib/account-email.ts");
 const bookingPage = read("app/(marketplace)/bookings/[id]/page.tsx");
 const paymentCallbackPage = read("app/(marketplace)/payments/callback/page.tsx");
 const browsePage = read("app/(marketplace)/browse/page.tsx");
 const dashboardPage = read("app/(dashboard)/dashboard/page.tsx");
+const signinPage = read("app/(auth)/signin/page.tsx");
+const forgotPasswordPage = read("app/(auth)/forgot-password/page.tsx");
+const resetPasswordPage = read("app/(auth)/reset-password/page.tsx");
+const verifyEmailPage = read("app/(auth)/verify-email/page.tsx");
 const demoStore = read("lib/demo-client-store.ts");
 const productionMigration = read("scripts/02-production-auth-and-marketplace.sql");
 
@@ -64,6 +76,11 @@ assert.equal(
   packageJson.scripts["smoke:production-vendor"],
   "node scripts/smoke-production-vendor.mjs",
   "Verified vendor listing smoke checks should be available as npm run smoke:production-vendor.",
+);
+assert.equal(
+  packageJson.scripts["smoke:production-account-email"],
+  "node scripts/smoke-production-account-email.mjs",
+  "Account email smoke checks should be available as npm run smoke:production-account-email.",
 );
 
 assertAbsent(
@@ -267,6 +284,102 @@ assertPresent(
   listingPhotoUploadRoute,
   /image\/jpeg[\s\S]*image\/png[\s\S]*image\/webp/,
   "Listing photo uploads should validate supported image types.",
+);
+
+assertPresent(
+  productionMigration,
+  /ALTER TABLE users[\s\S]*email_verified_at/,
+  "Production auth schema should track confirmed email addresses.",
+);
+assertPresent(
+  productionMigration,
+  /CREATE TABLE IF NOT EXISTS email_verification_tokens/,
+  "Production auth schema should store email verification tokens.",
+);
+assertPresent(
+  productionMigration,
+  /CREATE TABLE IF NOT EXISTS password_reset_tokens/,
+  "Production auth schema should store password reset tokens.",
+);
+assertPresent(
+  productionMigration,
+  /CREATE TABLE IF NOT EXISTS email_outbox/,
+  "Production auth schema should store no-DNS test account emails.",
+);
+assertPresent(
+  accountEmail,
+  /email_outbox[\s\S]*queueVerificationEmail[\s\S]*email_verification/,
+  "Account email helper should queue verification messages into the outbox.",
+);
+assertPresent(
+  accountEmail,
+  /email_outbox[\s\S]*queuePasswordResetEmail[\s\S]*password_reset/,
+  "Account email helper should queue password reset messages into the outbox.",
+);
+assertPresent(
+  accountEmail,
+  /resetPasswordWithToken[\s\S]*password_hash/,
+  "Account email helper should reset password hashes through valid tokens.",
+);
+assertPresent(
+  authActions,
+  /queueVerificationEmail/,
+  "Sign up should queue an email confirmation link.",
+);
+assertPresent(
+  sessionRoute,
+  /email_verified_at[\s\S]*emailVerified/,
+  "Session API should expose email verification state.",
+);
+assertPresent(
+  resendVerificationRoute,
+  /getCurrentUser[\s\S]*queueVerificationEmail/,
+  "Signed-in users should be able to resend verification links.",
+);
+assertPresent(
+  verifyEmailRoute,
+  /verifyEmailToken/,
+  "Email verification route should consume verification tokens.",
+);
+assertPresent(
+  resetRequestRoute,
+  /queuePasswordResetEmail/,
+  "Password reset request route should queue reset messages.",
+);
+assertPresent(
+  resetConfirmRoute,
+  /resetPasswordWithToken/,
+  "Password reset confirmation route should consume reset tokens.",
+);
+assertPresent(
+  devOutboxRoute,
+  /email_outbox[\s\S]*recipient_email/,
+  "Development outbox route should expose queued account emails for testing.",
+);
+assertPresent(
+  signinPage,
+  /Forgot password\?/,
+  "Sign in should expose password reset entry.",
+);
+assertPresent(
+  forgotPasswordPage,
+  /password-reset\/request/,
+  "Forgot password page should request password reset links.",
+);
+assertPresent(
+  resetPasswordPage,
+  /password-reset\/confirm/,
+  "Reset password page should confirm new passwords.",
+);
+assertPresent(
+  verifyEmailPage,
+  /verify-email/,
+  "Verify email page should confirm email tokens.",
+);
+assertPresent(
+  dashboardPage,
+  /handleResendVerification[\s\S]*api\/auth\/resend-verification/,
+  "Dashboard should let users resend confirmation links.",
 );
 
 assertPresent(

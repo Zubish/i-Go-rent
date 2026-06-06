@@ -65,6 +65,8 @@ export default function DashboardPage() {
   const [loadingRecords, setLoadingRecords] = useState(true);
   const [marketplaceNotice, setMarketplaceNotice] = useState("");
   const [submittingListing, setSubmittingListing] = useState(false);
+  const [verificationNotice, setVerificationNotice] = useState("");
+  const [sendingVerification, setSendingVerification] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -252,6 +254,33 @@ export default function DashboardPage() {
     }
   };
 
+  const handleResendVerification = async () => {
+    setVerificationNotice("");
+    setSendingVerification(true);
+
+    try {
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        setVerificationNotice(data.error || "Could not send confirmation link");
+        return;
+      }
+
+      setVerificationNotice(
+        data.alreadyVerified
+          ? "Your email is already confirmed."
+          : "Confirmation link sent.",
+      );
+    } catch {
+      setVerificationNotice("Could not send confirmation link");
+    } finally {
+      setSendingVerification(false);
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     signOutDemo();
@@ -304,7 +333,11 @@ export default function DashboardPage() {
             label="Bookings"
             value={(renterBookings.length + vendorBookings.length).toString()}
           />
-          <Metric icon={ShieldCheck} label="Trust status" value={renterKyc.label} />
+          <Metric
+            icon={ShieldCheck}
+            label="Email"
+            value={session?.emailVerified ? "Confirmed" : "Unconfirmed"}
+          />
           <Metric
             icon={CircleDollarSign}
             label="Booking value"
@@ -319,6 +352,35 @@ export default function DashboardPage() {
             aria-live="polite"
           >
             {marketplaceNotice}
+          </div>
+        )}
+
+        {session && !session.emailVerified && (
+          <div
+            className="mt-6 flex flex-col gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+            role="status"
+            aria-live="polite"
+          >
+            <div>
+              <p className="font-semibold">Confirm your email</p>
+              <p>
+                Secure account recovery and booking updates for {session.email}.
+              </p>
+              {verificationNotice && (
+                <p className="mt-1 text-xs font-semibold">
+                  {verificationNotice}
+                </p>
+              )}
+            </div>
+            <Button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={sendingVerification}
+              variant="outline"
+              className="bg-white"
+            >
+              {sendingVerification ? "Sending..." : "Send link"}
+            </Button>
           </div>
         )}
 

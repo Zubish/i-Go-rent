@@ -1,6 +1,7 @@
 "use server";
 
 import { sql } from "@/lib/db";
+import { queueVerificationEmail } from "@/lib/account-email";
 import { hashPassword, comparePasswords } from "@/lib/password";
 import { createToken, setAuthCookie, clearAuthCookie } from "@/lib/auth";
 import {
@@ -63,7 +64,7 @@ export async function signUp(formData: {
        VALUES ($1, $2, $3, $4, $4, $5, 'active', 'pending',
         $6, $7, $8, $9, $10, $11, $12, $13, NOW()
        )
-       RETURNING id, email, user_type, first_name, last_name, phone_number, city, state, residential_area`,
+       RETURNING id, email, user_type, first_name, last_name, phone_number, city, state, residential_area, email_verified_at`,
       [
         userId,
         formData.email,
@@ -205,6 +206,12 @@ export async function signUp(formData: {
       );
     }
 
+    await queueVerificationEmail({
+      userId: user.id,
+      email: user.email,
+      firstName: user.first_name,
+    });
+
     // Create auth token
     const token = await createToken({
       id: user.id,
@@ -235,6 +242,7 @@ export async function signUp(formData: {
         plateNumber: formData.plateNumber || "",
         coverageArea: formData.coverageArea || "",
         verified: isVerified,
+        emailVerified: Boolean(user.email_verified_at),
       },
       userId: user.id,
     };
@@ -249,6 +257,7 @@ export async function signIn(email: string, password: string) {
     const result = await sql(
       `SELECT
         u.id, u.email, u.password_hash, u.user_type, u.first_name, u.last_name, u.phone_number,
+        u.email_verified_at,
         u.city, u.state, u.residential_area, u.is_verified,
         iv.nin, iv.bvn, iv.cac_number,
         vp.business_name as vendor_business_name,
@@ -304,6 +313,7 @@ export async function signIn(email: string, password: string) {
           ? user.coverage_areas.join(", ")
           : "",
         verified: Boolean(user.is_verified),
+        emailVerified: Boolean(user.email_verified_at),
       },
       userId: user.id,
     };

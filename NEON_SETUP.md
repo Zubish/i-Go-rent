@@ -19,6 +19,8 @@ If a database URL has ever been committed or reported by GitGuardian/Neon, rotat
 
 `BLOB_READ_WRITE_TOKEN` is required for real listing-photo uploads. Without it, users can preview selected files in the dashboard, but saving a listing with uploaded photos is blocked by `/api/uploads/listing-photo`.
 
+Account verification and password reset can be tested without DNS or a mail provider. The app queues test messages in the database-backed `email_outbox`, and the latest links can be read from `/api/dev/email-outbox?email=user@example.com`. Replace this outbox with a real transactional email provider before public launch.
+
 ## Step 2: Run Database Schema on Neon
 
 Use the SQL editor in the Neon Console and execute the contents of:
@@ -47,8 +49,11 @@ npm run smoke:production
 npm run smoke:production-booking
 npm run smoke:production-vendor
 npm run smoke:production-payment
+npm run smoke:production-account-email
 ```
 
 The payment smoke may return `providerConfigured: false` until Flutterwave is configured. After payment env is present, it should return a payment link and production `/api/health` should report `paymentProviderConfigured: true`.
 
 Production `/api/health` should also report `imageStorageConfigured: true` after Blob storage is configured.
+
+The account email smoke creates a temporary user, sends a verification link through the test outbox, verifies the email, requests a password reset, confirms the reset, and deletes the temporary records.

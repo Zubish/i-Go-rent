@@ -67,9 +67,45 @@ WHERE user_type IS NULL
   OR country IS NULL;
 ALTER TABLE users ADD CONSTRAINT users_user_type_check CHECK (user_type IN ('renter', 'host', 'vendor', 'logistics', 'both'));
 ALTER TABLE users ADD COLUMN IF NOT EXISTS legal_use_accepted_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_sent_at TIMESTAMP;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS residential_area VARCHAR(150);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contact_name VARCHAR(150);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contact_phone VARCHAR(30);
+
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email VARCHAR(255) NOT NULL,
+  token_hash VARCHAR(128) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email VARCHAR(255) NOT NULL,
+  token_hash VARCHAR(128) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS email_outbox (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  recipient_email VARCHAR(255) NOT NULL,
+  email_type VARCHAR(50) NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  action_url TEXT,
+  status VARCHAR(50) DEFAULT 'queued',
+  provider_message_id TEXT,
+  sent_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 CREATE TABLE IF NOT EXISTS identity_verification (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -297,6 +333,9 @@ CREATE TABLE IF NOT EXISTS dispatch_assignments (
 
 CREATE INDEX IF NOT EXISTS idx_vendor_profiles_user_id ON vendor_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_logistics_profiles_user_id ON logistics_provider_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_outbox_recipient ON email_outbox(recipient_email);
 CREATE INDEX IF NOT EXISTS idx_bookings_listing_dates_status ON bookings(listing_id, start_date, end_date, status);
 CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON payments(booking_id);
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);

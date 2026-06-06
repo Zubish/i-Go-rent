@@ -4,35 +4,42 @@ import type React from "react";
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
-import { signIn } from "@/app/actions/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-export default function SignInPage() {
-  const router = useRouter();
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setMessage("");
     setError("");
     setSubmitting(true);
 
-    const response = await signIn(email, password);
-    setSubmitting(false);
+    try {
+      const response = await fetch("/api/auth/password-reset/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
 
-    if (!response.success || !response.user) {
-      setError(response.error || "Could not sign in");
-      return;
+      if (!response.ok) {
+        setError(data.error || "Could not start password reset.");
+        return;
+      }
+
+      setMessage(data.message);
+    } catch {
+      setError("Could not start password reset.");
+    } finally {
+      setSubmitting(false);
     }
-
-    const nextPath = new URLSearchParams(window.location.search).get("next");
-    router.push(nextPath || "/dashboard");
   };
 
   return (
@@ -42,13 +49,11 @@ export default function SignInPage() {
           i.Go-rent
         </Link>
         <h1 className="mt-6 text-3xl font-semibold tracking-normal">
-          Sign in to i.Go-rent
+          Reset password
         </h1>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Use your email and password to manage rentals, listings, and booking
-          updates from one account.
+          Enter your account email. We will send a reset link if it exists.
         </p>
-
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <Input
             type="email"
@@ -57,20 +62,20 @@ export default function SignInPage() {
             placeholder="Email address"
             required
           />
-          <Input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Password"
-            required
-          />
-          <div className="text-right text-sm">
-            <Link href="/forgot-password" className="font-medium text-teal-700">
-              Forgot password?
-            </Link>
-          </div>
+          {message && (
+            <div
+              className="rounded-md border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900"
+              role="status"
+              aria-live="polite"
+            >
+              {message}
+            </div>
+          )}
           {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div
+              className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+              role="alert"
+            >
               {error}
             </div>
           )}
@@ -78,14 +83,13 @@ export default function SignInPage() {
             disabled={submitting}
             className="w-full bg-teal-500 text-white hover:bg-teal-600"
           >
-            {submitting ? "Signing in..." : "Continue"}
+            {submitting ? "Sending..." : "Send reset link"}
           </Button>
         </form>
-
         <p className="mt-6 text-center text-sm text-slate-600">
-          Need a profile?{" "}
-          <Link href="/signup" className="font-medium text-teal-700">
-            Create one
+          Remembered it?{" "}
+          <Link href="/signin" className="font-medium text-teal-700">
+            Sign in
           </Link>
         </p>
       </Card>

@@ -14,6 +14,7 @@ export async function GET() {
     const result = await sql(
       `SELECT
         u.id, u.email, u.user_type, u.first_name, u.last_name, u.phone_number,
+        u.email_verified_at,
         u.city, u.residential_area, u.is_verified,
         iv.nin, iv.bvn, iv.cac_number,
         vp.business_name as vendor_business_name,
@@ -52,6 +53,7 @@ export async function GET() {
           ? user.coverage_areas.join(", ")
           : "",
         verified: Boolean(user.is_verified),
+        emailVerified: Boolean(user.email_verified_at),
       },
     });
   } catch (error) {

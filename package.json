@@ -8,6 +8,7 @@
     "dev": "next dev",
     "lint": "eslint .",
     "smoke:production": "node scripts/smoke-production.mjs",
+    "smoke:production-account-email": "node scripts/smoke-production-account-email.mjs",
     "smoke:production-booking": "node scripts/smoke-production-booking.mjs",
     "smoke:production-payment": "node scripts/smoke-production-payment.mjs",
     "smoke:production-upload": "node scripts/smoke-production-upload.mjs",

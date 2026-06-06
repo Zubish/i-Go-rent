@@ -17,6 +17,7 @@ export type DemoUser = {
   plateNumber?: string;
   coverageArea?: string;
   verified: boolean;
+  emailVerified?: boolean;
 };
 
 export type DemoLogisticsProvider = {
