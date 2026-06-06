@@ -303,6 +303,11 @@ assertPresent(
 );
 assertPresent(
   productionMigration,
+  /ALTER TABLE password_reset_tokens[\s\S]*ADD COLUMN IF NOT EXISTS email/,
+  "Production auth schema should upgrade older password reset token tables.",
+);
+assertPresent(
+  productionMigration,
   /CREATE TABLE IF NOT EXISTS email_outbox/,
   "Production auth schema should store no-DNS test account emails.",
 );
@@ -313,7 +318,7 @@ assertPresent(
 );
 assertPresent(
   accountEmail,
-  /email_outbox[\s\S]*queuePasswordResetEmail[\s\S]*password_reset/,
+  /randomUUID[\s\S]*queuePasswordResetEmail[\s\S]*password_reset/,
   "Account email helper should queue password reset messages into the outbox.",
 );
 assertPresent(

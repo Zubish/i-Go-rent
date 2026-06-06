@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { sql } from "@/lib/db";
 
@@ -63,10 +63,16 @@ export async function queueVerificationEmail(input: {
   );
   await sql(
     `INSERT INTO email_verification_tokens (
-      user_id, email, token_hash, expires_at
+      id, user_id, email, token_hash, expires_at
     )
-    VALUES ($1, $2, $3, $4)`,
-    [input.userId, input.email, tokenHash(token), expiresAt.toISOString()],
+    VALUES ($1, $2, $3, $4, $5)`,
+    [
+      randomUUID(),
+      input.userId,
+      input.email,
+      tokenHash(token),
+      expiresAt.toISOString(),
+    ],
   );
   await sql(
     `UPDATE users SET email_verification_sent_at = NOW() WHERE id = $1`,
@@ -102,10 +108,16 @@ export async function queuePasswordResetEmail(input: {
   );
   await sql(
     `INSERT INTO password_reset_tokens (
-      user_id, email, token_hash, expires_at
+      id, user_id, email, token_hash, expires_at
     )
-    VALUES ($1, $2, $3, $4)`,
-    [input.userId, input.email, tokenHash(token), expiresAt.toISOString()],
+    VALUES ($1, $2, $3, $4, $5)`,
+    [
+      randomUUID(),
+      input.userId,
+      input.email,
+      tokenHash(token),
+      expiresAt.toISOString(),
+    ],
   );
 
   await queueEmail({

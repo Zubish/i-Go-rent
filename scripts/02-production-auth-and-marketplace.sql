@@ -93,6 +93,9 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE password_reset_tokens
+  ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+
 CREATE TABLE IF NOT EXISTS email_outbox (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
